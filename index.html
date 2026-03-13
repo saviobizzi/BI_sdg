@@ -521,6 +521,7 @@
         ],
         bdps:[],
         medicoes:[],
+        dailySnapshots:[],
         purchaseOrders:[],
         maintenanceAssets:[
           {id:uid('asset'),name:'Perfuratriz 01',category:'Perfuratriz',active:true}
@@ -547,6 +548,7 @@
     let unsubProject=null;
     let unsubPresence=null;
     let presenceBeat=null;
+    let presenceUsers=[];
     let lastInteraction=0;
 
     let fbApp=null, auth=null, db=null;
@@ -575,6 +577,7 @@
       d.bdpRates=ensureArrayIds(d.bdpRates,'rate');
       d.bdps=ensureArrayIds(d.bdps,'bdp');
       d.medicoes=ensureArrayIds(d.medicoes,'med');
+      d.dailySnapshots=ensureArrayIds(d.dailySnapshots,'snap');
       d.purchaseOrders=ensureArrayIds(d.purchaseOrders,'po');
       d.maintenanceAssets=ensureArrayIds(d.maintenanceAssets,'asset');
       d.maintenanceRecords=ensureArrayIds(d.maintenanceRecords,'mrec');
@@ -621,6 +624,30 @@
 
     function getContractValue(){
       return num(STATE.valorContrato,0) || num(STATE.valorMetroContrato,0)*num(STATE.metragem,0);
+    }
+
+    function getDaysElapsed(refDate=isoDate()){
+      const start=new Date((STATE.dataInicio||isoDate())+'T00:00:00');
+      const end=new Date((refDate||isoDate())+'T00:00:00');
+      return Math.max(1,Math.floor((end-start)/86400000)+1);
+    }
+
+    function getPlannedMetersByDate(dateStr=isoDate()){
+      const daily=CALC.totalPlanDays>0?num(STATE.metragem,0)/CALC.totalPlanDays:0;
+      return Math.min(num(STATE.metragem,0), daily*getDaysElapsed(dateStr));
+    }
+
+    function getActualMetersByDate(dateStr=isoDate()){
+      return STATE.bdps.filter(b=>(b.data||'')<=dateStr).reduce((a,b)=>a+num(b.metrosPerf,0),0);
+    }
+
+    function getActualCostByDate(dateStr=isoDate()){
+      const elapsed=getDaysElapsed(dateStr);
+      const opex=(CALC.opexMonth/30)*elapsed;
+      const capex=Math.min(1,elapsed/15)*CALC.capexTotal;
+      const po=STATE.purchaseOrders.filter(po=>po.status==='aprovada' && (po.month||'')<=monthKey(dateStr)).reduce((a,po)=>a+num(po.amount,0),0);
+      const maint=STATE.maintenanceRecords.filter(r=>(r.data||'')<=dateStr).reduce((a,r)=>a+num(r.cost,0),0);
+      return opex+capex+po+maint;
     }
 
     function recalc(source='local'){
@@ -719,6 +746,25 @@
       CALC.openMaint=STATE.maintenanceRecords.filter(r=>r.status!=='resolvido').length;
       CALC.pendingTasks=STATE.maintenanceTasks.filter(t=>t.status!=='concluida').length;
       CALC.pendingPO=STATE.purchaseOrders.filter(po=>po.status==='aguardando').reduce((a,po)=>a+num(po.amount,0),0);
+      CALC.openRisks=STATE.riscos.filter(r=>r.status!=='resolvido').length;
+      CALC.riskItems=STATE.riscos.filter(r=>r.impactPlanning).length;
+      CALC.ssmaImpactItems=STATE.ssmaEvents.filter(e=>e.impactPlanning).length;
+      CALC.poTotals={aguardando:0,aprovada:0,reprovada:0};
+      STATE.purchaseOrders.forEach(po=>{
+        const st=PO_STATUS.includes(po.status)?po.status:'aguardando';
+        CALC.poTotals[st]+=num(po.amount,0);
+      });
+
+      const tl=[];
+      const pushTL=(label,days,type='info')=>{ if(num(days,0)>0) tl.push({label,days:num(days,0),type}); };
+      pushTL('Mobilização base',STATE.leadTime,'warn');
+      STATE.riscos.filter(r=>r.impactPlanning).forEach(r=>pushTL(`Risco: ${r.titulo||'risco'}`,num(r.impactDays,0),'bad'));
+      STATE.ssmaEvents.filter(e=>e.impactPlanning).forEach(e=>pushTL(`SSMA: ${e.titulo||'evento'}`,num(e.impactDays,0),'info'));
+      pushTL('Perfuração base',CALC.basePerfDays,'ok');
+      pushTL('Mudanças de sonda',CALC.baseMoveDays,'info');
+      pushTL('Desmobilização',15,'bad');
+      let cursor=0;
+      CALC.timeline=tl.map(it=>{ const start=cursor; cursor+=it.days; return {...it,start,end:cursor}; });
 
       CALC.quality=findDataQualityIssues();
       CALC.alerts=buildAlerts();
@@ -771,6 +817,27 @@
       return issues.slice(0,25);
     }
 
+    function captureSnapshot(force=true){
+      const dt=isoDate();
+      const exists=STATE.dailySnapshots.some(s=>s.date===dt);
+      if(exists && !force) return;
+      if(exists && force){
+        STATE.dailySnapshots=STATE.dailySnapshots.filter(s=>s.date!==dt);
+      }
+      STATE.dailySnapshots.unshift({
+        id:uid('snap'),
+        date:dt,
+        capturedAt:new Date().toISOString(),
+        plannedMeters:getPlannedMetersByDate(dt),
+        actualMeters:getActualMetersByDate(dt),
+        plannedCost:(CALC.totalCost/Math.max(1,CALC.totalPlanDays))*getDaysElapsed(dt),
+        actualCost:getActualCostByDate(dt)
+      });
+      if(STATE.dailySnapshots.length>180) STATE.dailySnapshots.length=180;
+      recalc();
+      if(activeTab==='track') renderTrack();
+    }
+
     function getHealth(projectLike=STATE){
       const margin=num(projectLike._margin, CALC.margin);
       const days=num(projectLike._days, CALC.totalPlanDays);
@@ -813,10 +880,16 @@
     function buildAppSkeleton(){
       const tabs=[
         ['config','⚙ Configuração'],
+        ['team','👥 Equipe'],
         ['dash','📊 Dashboard'],
+        ['fin','💰 Financeiro'],
+        ['risk','⚠ Riscos'],
+        ['crono','📅 Cronograma'],
+        ['bdpref','🧮 Referências BDP'],
         ['bdp','📝 BDP'],
         ['med','📋 Medição'],
         ['ssma','🛡 SSMA'],
+        ['track','📈 Acompanhamento'],
         ['insu','📦 Insumos/PO'],
         ['manu','🛠 Manutenção'],
         ['audit','🕵 Auditoria']
@@ -884,6 +957,28 @@
           </div>
         </section>
 
+        <section class="tab ${activeTab==='team'?'active':''}" id="tab-team">
+          <div class="section-title">👥 Equipe e colaboração</div>
+          <div class="section-sub">Capacidade operacional, acesso de membros e presença online no projeto.</div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Equipe base</div><div class="v" id="tBasePeople">0</div></div>
+            <div class="card"><div class="k">Equipe total</div><div class="v" id="tTotalPeople">0</div></div>
+            <div class="card"><div class="k">Folha + encargos</div><div class="v" id="tPayroll">R$ 0</div></div>
+            <div class="card"><div class="k">Membros / online</div><div class="v" id="tMembersOnline">0 / 0</div></div>
+          </div>
+          <div class="grid-2" style="margin-top:12px">
+            <div class="card">
+              <div class="k">Membros autorizados</div>
+              <div class="kpi-mini" style="margin-bottom:8px">Gerencie no botão <strong>Membros</strong> na barra superior.</div>
+              <div id="teamMembersList"></div>
+            </div>
+            <div class="card">
+              <div class="k">Usuários online</div>
+              <div id="teamOnlineList"></div>
+            </div>
+          </div>
+        </section>
+
         <section class="tab ${activeTab==='dash'?'active':''}" id="tab-dash">
           <div class="section-title">📊 Dashboard executivo</div>
           <div class="section-sub">Leitura integrada: cronograma, custo real estimado, produção e qualidade de dados.</div>
@@ -923,6 +1018,67 @@
           <div class="card" style="margin-top:12px">
             <div class="k">Checklist de qualidade de dados (pré-auditoria)</div>
             <div id="dashQuality"></div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='fin'?'active':''}" id="tab-fin">
+          <div class="section-title">💰 Financeiro</div>
+          <div class="section-sub">Composição de custo, contrato e posição de margem com atualização automática.</div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Contrato</div><div class="v" id="fContract">R$ 0</div><div class="kpi-mini">R$/m <strong id="fContractMeter">—</strong></div></div>
+            <div class="card"><div class="k">Custo estimado</div><div class="v" id="fTotal">R$ 0</div><div class="kpi-mini">R$/m <strong id="fCostMeter">—</strong></div></div>
+            <div class="card"><div class="k">Margem</div><div class="v" id="fMargin">0%</div><div class="kpi-mini">Lucro <strong id="fProfit">R$ 0</strong></div></div>
+            <div class="card"><div class="k">Contingência</div><div class="v" id="fCont">R$ 0</div><div class="kpi-mini">Sobre subtotal</div></div>
+          </div>
+          <div class="grid-2" style="margin-top:12px">
+            <div class="card"><div class="k">Estrutura de custos</div><div id="finCostRows"></div></div>
+            <div class="card"><div class="k">Execução financeira</div><div id="finExecRows"></div></div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='risk'?'active':''}" id="tab-risk">
+          <div class="section-title">⚠ Riscos</div>
+          <div class="section-sub">Riscos com impacto no cronograma, responsáveis e status de tratamento.</div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Impacto total</div><div class="v" id="rImpactDays">0d</div></div>
+            <div class="card"><div class="k">Itens com impacto</div><div class="v" id="rImpactItems">0</div></div>
+            <div class="card"><div class="k">Riscos abertos</div><div class="v" id="rOpen">0</div></div>
+            <div class="card"><div class="k">Impactos SSMA</div><div class="v" id="rSSMAItems">0</div></div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+              <div class="k">Matriz de riscos</div>
+              <button class="btn btn-primary" id="btnAddRisk">+ Risco</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Risco</th><th>Impacta plano?</th><th>Dias</th><th>Responsável</th><th>Status</th><th></th></tr></thead><tbody id="tbRisk"></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='crono'?'active':''}" id="tab-crono">
+          <div class="section-title">📅 Cronograma integrado</div>
+          <div class="section-sub">Linha do tempo consolidada por configuração, riscos e eventos SSMA.</div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Prazo integrado</div><div class="v" id="cPlanDays">0d</div></div>
+            <div class="card"><div class="k">Prazo contratual</div><div class="v" id="cDeadline">0d</div></div>
+            <div class="card"><div class="k">Folga / atraso</div><div class="v" id="cSlack">0d</div></div>
+            <div class="card"><div class="k">Meses estimados</div><div class="v" id="cMonths">0</div></div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div class="k">Linha do tempo</div>
+            <div id="cronoTimelineRows"></div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='bdpref'?'active':''}" id="tab-bdpref">
+          <div class="section-title">🧮 Referências BDP</div>
+          <div class="section-sub">Tabela mestre de preço por diâmetro com aplicação automática nos lançamentos.</div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+              <div class="k">Preço por metro / diâmetro</div>
+              <button class="btn btn-sec" id="btnAddRateRef">+ Diâmetro</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Diâmetro</th><th>R$/m</th><th>Ativo</th><th></th></tr></thead><tbody id="tbRatesRef"></tbody></table></div>
+            <div class="alert info" style="margin-top:10px">Alterações aqui alimentam automaticamente os novos lançamentos no BDP.</div>
           </div>
         </section>
 
@@ -1012,6 +1168,24 @@
           </div>
         </section>
 
+        <section class="tab ${activeTab==='track'?'active':''}" id="tab-track">
+          <div class="section-title">📈 Acompanhamento</div>
+          <div class="section-sub">Fechamento diário de evolução física e custo estimado real acumulado.</div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px">
+            <button class="btn btn-sec" id="btnSnapshotToday">Registrar fechamento de hoje</button>
+          </div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Planejado hoje</div><div class="v" id="trPlanned">0m</div></div>
+            <div class="card"><div class="k">Realizado hoje</div><div class="v" id="trActual">0m</div></div>
+            <div class="card"><div class="k">Custo planejado</div><div class="v" id="trPlanCost">R$ 0</div></div>
+            <div class="card"><div class="k">Custo real estimado</div><div class="v" id="trActualCost">R$ 0</div></div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div class="k">Histórico diário</div>
+            <div class="table-wrap"><table><thead><tr><th>Data</th><th>Planejado (m)</th><th>Real (m)</th><th>Custo plan.</th><th>Custo real</th></tr></thead><tbody id="tbTrack"></tbody></table></div>
+          </div>
+        </section>
+
         <section class="tab ${activeTab==='insu'?'active':''}" id="tab-insu">
           <div class="section-title">📦 Insumos / POs</div>
           <div class="section-sub">Fluxo de aprovação com impacto financeiro integrado.</div>
@@ -1088,12 +1262,16 @@
 
     function bindGlobalActions(){
       $('btnAddRole').onclick=()=>{ STATE.pessoal.push({id:uid('team'),nome:'Nova função',qtd:1,sal:0,fixo:true,dobra:false,special:''}); recalc(); renderConfig(); };
-      $('btnAddRate').onclick=()=>{ STATE.bdpRates.push({id:uid('rate'),diametro:'NOVO',precoMetro:0,ativo:true}); recalc(); renderBDP(); };
+      const addRateAction=()=>{ STATE.bdpRates.push({id:uid('rate'),diametro:'NOVO',precoMetro:0,ativo:true}); recalc(); if(activeTab==='bdpref') renderBDPRef(); else renderBDP(); };
+      if($('btnAddRate')) $('btnAddRate').onclick=addRateAction;
+      if($('btnAddRateRef')) $('btnAddRateRef').onclick=addRateAction;
       $('btnAddBDP').onclick=()=>{ STATE.bdps.push({id:uid('bdp'),data:isoDate(),furo:`FURO-${STATE.bdps.length+1}`,profIni:0,profFim:0,diametro:'HQ',precoUnit:0,metrosPerf:0,valorPerf:0}); recalc(); renderBDP(); };
       $('btnAddMed').onclick=()=>{ STATE.medicoes.push({id:uid('med'),data:isoDate(),descricao:`Medição #${STATE.medicoes.length+1}`,metros:0,valor:0,status:'pendente',recebido:0}); recalc(); renderMed(); };
       $('btnAddSSMA').onclick=()=>{ STATE.ssmaEvents.push({id:uid('sev'),data:isoDate(),titulo:'Evento SSMA',impactPlanning:false,impactDays:0,responsible:'',status:'aberto'}); recalc(); renderSSMA(); };
       $('btnAddStop').onclick=()=>{ STATE.paradas.push({id:uid('stop'),data:isoDate(),motivo:'',horas:0,tipo:'Mecânica'}); recalc(); renderSSMA(); };
       $('btnAddPO').onclick=()=>addPO();
+      if($('btnAddRisk')) $('btnAddRisk').onclick=()=>{ STATE.riscos.push({id:uid('risk'),titulo:'Novo risco',impactPlanning:false,impactDays:0,owner:'',status:'aberto'}); recalc(); renderRisk(); };
+      if($('btnSnapshotToday')) $('btnSnapshotToday').onclick=()=>captureSnapshot(true);
       $('btnAddAsset').onclick=()=>{ STATE.maintenanceAssets.push({id:uid('asset'),name:`Ativo ${STATE.maintenanceAssets.length+1}`,category:'Equipamento',active:true}); recalc(); renderManu(); };
       $('btnAddTask').onclick=()=>{ STATE.maintenanceTasks.push({id:uid('mtask'),title:'Nova pendência',dueDate:isoDate(),responsible:'',status:'pendente'}); recalc(); renderManu(); };
       $('btnAddMaint').onclick=()=>{ STATE.maintenanceRecords.push({id:uid('mrec'),data:isoDate(),assetId:'',assetName:'',comment:'',hoursDown:0,cost:0,responsible:'',status:'pendente'}); recalc(); renderManu(); };
@@ -1101,10 +1279,16 @@
     }
 
     tabRenders.config=renderConfig;
+    tabRenders.team=renderTeam;
     tabRenders.dash=renderDash;
+    tabRenders.fin=renderFin;
+    tabRenders.risk=renderRisk;
+    tabRenders.crono=renderCrono;
+    tabRenders.bdpref=renderBDPRef;
     tabRenders.bdp=renderBDP;
     tabRenders.med=renderMed;
     tabRenders.ssma=renderSSMA;
+    tabRenders.track=renderTrack;
     tabRenders.insu=renderInsu;
     tabRenders.manu=renderManu;
     tabRenders.audit=renderAudit;
@@ -1166,6 +1350,120 @@
       });
       $('tbRoles').querySelectorAll('[data-del-role]').forEach(btn=>{
         btn.onclick=()=>{ STATE.pessoal.splice(+btn.dataset.delRole,1); recalc(); renderConfig(); };
+      });
+    }
+
+    function renderTeam(){
+      $('tBasePeople').textContent=fmt(CALC.basePeople||0);
+      $('tTotalPeople').textContent=fmt(CALC.totalPeople||0);
+      $('tPayroll').textContent=money(CALC.totalPayroll||0);
+      $('tMembersOnline').textContent=`${(STATE.members||[]).filter(Boolean).length} / ${presenceUsers.length}`;
+      const members=[...new Set((STATE.members||[]).filter(Boolean))];
+      $('teamMembersList').innerHTML=members.length
+        ? members.map(m=>`<div class="kpi-mini" style="margin-bottom:6px">• <strong>${esc(m)}</strong></div>`).join('')
+        : `<div class="tiny muted">Sem membros adicionais cadastrados.</div>`;
+      $('teamOnlineList').innerHTML=presenceUsers.length
+        ? presenceUsers.map(u=>`<div class="kpi-mini" style="margin-bottom:6px">🟢 <strong>${esc(u.name||u.email||'Usuário')}</strong> <span class="muted">(${esc(u.email||'sem e-mail')})</span></div>`).join('')
+        : `<div class="tiny muted">Nenhum usuário online no momento.</div>`;
+    }
+
+    function renderFin(){
+      $('fContract').textContent=CALC.contractValue?money(CALC.contractValue):'—';
+      $('fContractMeter').textContent=CALC.contractPerMeter?money(CALC.contractPerMeter):'—';
+      $('fTotal').textContent=money(CALC.totalCost);
+      $('fCostMeter').textContent=money(CALC.costPerMeter);
+      $('fMargin').textContent=CALC.contractValue?`${fmt1(CALC.margin)}%`:'—';
+      $('fMargin').style.color=CALC.margin>=0?'var(--ok)':'var(--bad)';
+      $('fProfit').textContent=money(CALC.profit);
+      $('fCont').textContent=money(CALC.contingency);
+      $('finCostRows').innerHTML=`
+        <div class="kpi-mini">Folha + encargos / mês <strong>${money(CALC.totalPayroll)}</strong></div>
+        <div class="kpi-mini">OPEX adicionais / mês <strong>${money(CALC.opexExtrasMonth)}</strong></div>
+        <div class="kpi-mini">OPEX total estimado <strong>${money(CALC.opexTotal)}</strong></div>
+        <div class="kpi-mini">CAPEX total <strong>${money(CALC.capexTotal)}</strong></div>
+        <div class="kpi-mini">Subtotal <strong>${money(CALC.subtotal)}</strong></div>
+      `;
+      $('finExecRows').innerHTML=`
+        <div class="kpi-mini">Faturado <strong>${money(CALC.totalBilled)}</strong></div>
+        <div class="kpi-mini">Recebido <strong>${money(CALC.totalReceived)}</strong></div>
+        <div class="kpi-mini">Saldo contratual <strong>${money(Math.max(0,CALC.contractValue-CALC.totalBilled))}</strong></div>
+        <div class="kpi-mini">Custo real estimado <strong>${money(CALC.actualCost)}</strong></div>
+      `;
+    }
+
+    function renderRisk(){
+      $('rImpactDays').textContent=`${fmt(CALC.riskImpactDays)}d`;
+      $('rImpactItems').textContent=fmt(CALC.riskItems||0);
+      $('rOpen').textContent=fmt(CALC.openRisks||0);
+      $('rSSMAItems').textContent=fmt(CALC.ssmaImpactItems||0);
+
+      $('tbRisk').innerHTML=STATE.riscos.map((r,i)=>`
+        <tr>
+          <td><input class="cell-input" value="${esc(r.titulo||'')}" data-risk-k="titulo" data-i="${i}"></td>
+          <td style="text-align:center"><input type="checkbox" ${r.impactPlanning?'checked':''} data-risk-k="impactPlanning" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono" value="${num(r.impactDays,0)}" data-risk-k="impactDays" data-i="${i}"></td>
+          <td><input class="cell-input cell-mid" value="${esc(r.owner||'')}" data-risk-k="owner" data-i="${i}"></td>
+          <td>
+            <select class="cell-input cell-mid" data-risk-k="status" data-i="${i}">
+              ${EVENT_STATUS.map(s=>`<option value="${s}" ${r.status===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td class="row-actions"><button class="btn btn-bad tiny" data-del-risk="${i}" style="padding:4px 8px">Excluir</button></td>
+        </tr>
+      `).join('');
+      $('tbRisk').querySelectorAll('[data-risk-k]').forEach(el=>{
+        el.oninput=el.onchange=()=>{
+          const i=+el.dataset.i,k=el.dataset.riskK;
+          if(k==='impactPlanning') STATE.riscos[i][k]=el.checked;
+          else if(k==='impactDays') STATE.riscos[i][k]=+el.value;
+          else STATE.riscos[i][k]=el.value;
+          recalc(); renderRisk();
+        };
+      });
+      $('tbRisk').querySelectorAll('[data-del-risk]').forEach(btn=>{
+        btn.onclick=()=>{ STATE.riscos.splice(+btn.dataset.delRisk,1); recalc(); renderRisk(); };
+      });
+    }
+
+    function renderCrono(){
+      $('cPlanDays').textContent=`${fmt(CALC.totalPlanDays)}d`;
+      $('cDeadline').textContent=`${fmt(STATE.prazoContratual)}d`;
+      const slack=num(STATE.prazoContratual)-num(CALC.totalPlanDays);
+      $('cSlack').textContent=`${fmt(slack)}d`;
+      $('cSlack').style.color=slack>=0?'var(--ok)':'var(--bad)';
+      $('cMonths').textContent=fmt1(CALC.totalPlanMonths||0);
+      const total=Math.max(1,(CALC.timeline||[]).reduce((a,t)=>a+num(t.days,0),0));
+      $('cronoTimelineRows').innerHTML=(CALC.timeline||[]).length
+        ? CALC.timeline.map(item=>`
+          <div class="kpi-mini" style="margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(item.label)}</span><strong>${fmt(item.days)}d</strong></div>
+            <div class="progress"><div style="width:${Math.max(3,(item.days/total)*100)}%;background:${item.type==='bad'?'linear-gradient(90deg,#ef4444,#b91c1c)':item.type==='warn'?'linear-gradient(90deg,#f59e0b,#f97316)':item.type==='ok'?'linear-gradient(90deg,#10b981,#06b6d4)':'linear-gradient(90deg,#60a5fa,#06b6d4)'}"></div></div>
+          </div>
+        `).join('')
+        : `<div class="tiny muted">Sem eventos de cronograma.</div>`;
+    }
+
+    function renderBDPRef(){
+      $('tbRatesRef').innerHTML=STATE.bdpRates.map((r,i)=>`
+        <tr>
+          <td><input class="cell-input cell-small mono" value="${esc(r.diametro||'')}" data-rate-ref-k="diametro" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono" value="${num(r.precoMetro,0)}" data-rate-ref-k="precoMetro" data-i="${i}"></td>
+          <td style="text-align:center"><input type="checkbox" ${r.ativo?'checked':''} data-rate-ref-k="ativo" data-i="${i}"></td>
+          <td class="row-actions"><button class="btn btn-bad tiny" data-del-rate-ref="${i}" style="padding:4px 8px">Excluir</button></td>
+        </tr>
+      `).join('');
+      $('tbRatesRef').querySelectorAll('[data-rate-ref-k]').forEach(el=>{
+        el.oninput=el.onchange=()=>{
+          const i=+el.dataset.i,k=el.dataset.rateRefK;
+          if(k==='ativo') STATE.bdpRates[i][k]=el.checked;
+          else if(k==='precoMetro') STATE.bdpRates[i][k]=+el.value;
+          else STATE.bdpRates[i][k]=String(el.value||'').toUpperCase();
+          recalc();
+          renderBDPRef();
+        };
+      });
+      $('tbRatesRef').querySelectorAll('[data-del-rate-ref]').forEach(btn=>{
+        btn.onclick=()=>{ STATE.bdpRates.splice(+btn.dataset.delRateRef,1); recalc(); renderBDPRef(); };
       });
     }
 
@@ -1349,6 +1647,18 @@
       $('tbSSMAEvents').querySelectorAll('[data-del-ev]').forEach(btn=>{
         btn.onclick=()=>{ STATE.ssmaEvents.splice(+btn.dataset.delEv,1); recalc(); renderSSMA(); };
       });
+    }
+
+    function renderTrack(){
+      const today=isoDate();
+      $('trPlanned').textContent=`${fmt1(getPlannedMetersByDate(today))}m`;
+      $('trActual').textContent=`${fmt1(getActualMetersByDate(today))}m`;
+      $('trPlanCost').textContent=money((CALC.totalCost/Math.max(1,CALC.totalPlanDays))*getDaysElapsed(today));
+      $('trActualCost').textContent=money(getActualCostByDate(today));
+      const sorted=[...(STATE.dailySnapshots||[])].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+      $('tbTrack').innerHTML=sorted.length
+        ? sorted.map(s=>`<tr><td>${esc(s.date||'')}</td><td class="mono">${fmt1(s.plannedMeters||0)}</td><td class="mono">${fmt1(s.actualMeters||0)}</td><td class="mono">${money(s.plannedCost||0)}</td><td class="mono">${money(s.actualCost||0)}</td></tr>`).join('')
+        : `<tr><td colspan="5" class="tiny muted" style="text-align:center;padding:18px">Nenhum fechamento diário registrado.</td></tr>`;
     }
 
     function canDeletePO(po){
@@ -1672,7 +1982,15 @@
     function renderPortfolioSummary(projects){
       const list=Array.isArray(projects)?projects:[];
       const total=list.length;
-      const attention=list.filter(p=>getHealth({_margin:num(p._cachedMargin,0),_days:num(p._cachedDays,p.prazoContratual),prazoContratual:p.prazoContratual}).cls!=='ok').length;
+      const attention=list.filter(p=>{
+        const pr=normalize(p);
+        const estContract=num(pr.valorContrato,0) || (num(pr.valorMetroContrato,0)*num(pr.metragem,0));
+        const estProd=Math.max(1,num(pr.nPerf,1)*num(pr.prodMdia,1));
+        const estDays=Math.max(1,num(pr.leadTime,15)+Math.ceil(num(pr.metragem,0)/estProd)+15);
+        const proxyCost=estContract>0 ? estContract*0.9 : num(pr.metragem,0)*num(pr.nPerf,0)*35;
+        const quickMargin=estContract>0?((estContract-proxyCost)/Math.max(1,estContract))*100:0;
+        return getHealth({_margin:quickMargin,_days:estDays,prazoContratual:pr.prazoContratual}).cls!=='ok';
+      }).length;
       const meters=list.reduce((a,p)=>a+num(p.metragem,0),0);
       const rigs=list.reduce((a,p)=>a+num(p.nPerf,0),0);
       const rev=list.reduce((a,p)=>a+num(p.valorContrato,0),0);
@@ -1692,9 +2010,12 @@
 
       const tiles=list.map(p=>{
         const pr=normalize(p);
-        // cache leve para resumo da saúde no portfólio
-        const quickMargin=num(pr.valorContrato,0)>0?((num(pr.valorContrato,0)-num(pr.valorContrato,0)*0.8)/Math.max(1,num(pr.valorContrato,0))*100):0;
-        const health=getHealth({_margin:quickMargin,_days:num(pr.prazoContratual,180),prazoContratual:pr.prazoContratual});
+        const estContract=num(pr.valorContrato,0) || (num(pr.valorMetroContrato,0)*num(pr.metragem,0));
+        const estProd=Math.max(1,num(pr.nPerf,1)*num(pr.prodMdia,1));
+        const estDays=Math.max(1,num(pr.leadTime,15)+Math.ceil(num(pr.metragem,0)/estProd)+15);
+        const proxyCost=estContract>0 ? estContract*0.9 : num(pr.metragem,0)*num(pr.nPerf,0)*35;
+        const quickMargin=estContract>0?((estContract-proxyCost)/Math.max(1,estContract))*100:0;
+        const health=getHealth({_margin:quickMargin,_days:estDays,prazoContratual:pr.prazoContratual});
         const price=num(pr.valorContrato,0)>0 && num(pr.metragem,0)>0 ? num(pr.valorContrato,0)/num(pr.metragem,1) : 0;
         return `
           <article class="project-tile" data-open-project="${esc(p.id)}">
@@ -1786,6 +2107,8 @@
     function clearPresence(){
       if(unsubPresence){unsubPresence();unsubPresence=null;}
       if(presenceBeat){clearInterval(presenceBeat);presenceBeat=null;}
+      presenceUsers=[];
+      if(activeTab==='team' && typeof renderTeam==='function') renderTeam();
       if(db && currentProjectId && currentUser?.uid){
         db.collection('projects').doc(currentProjectId).collection('presence').doc(currentUser.uid).delete().catch(()=>{});
       }
@@ -1804,7 +2127,20 @@
       });
       docRef.set(payload(),{merge:true}).catch(()=>{});
       presenceBeat=setInterval(()=>docRef.set(payload(),{merge:true}).catch(()=>{}),25000);
-      unsubPresence=db.collection('projects').doc(currentProjectId).collection('presence').onSnapshot(()=>{},()=>{});
+      unsubPresence=db.collection('projects').doc(currentProjectId).collection('presence').onSnapshot(snap=>{
+        const now=Date.now();
+        const users=[];
+        snap.forEach(doc=>{
+          const d=doc.data()||{};
+          const ms=d.lastSeen?.toDate ? d.lastSeen.toDate().getTime() : 0;
+          if(!ms || now-ms<=90000) users.push(d);
+        });
+        presenceUsers=users;
+        if(activeTab==='team' && typeof renderTeam==='function') renderTeam();
+      },()=>{
+        presenceUsers=[];
+        if(activeTab==='team' && typeof renderTeam==='function') renderTeam();
+      });
     }
 
     async function openProject(id){
