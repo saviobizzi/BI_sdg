@@ -109,7 +109,7 @@ service cloud.firestore {
       match /presence/{userId} {
         allow read: if signedIn() && canReadProject(projectId);
 
-        allow create, update, delete: if signedIn()
+        allow create, update: if signedIn()
           && canReadProject(projectId)
           && userId == request.auth.uid
           && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'photoURL', 'lastSeen'])
@@ -117,6 +117,10 @@ service cloud.firestore {
           && request.resource.data.name is string
           && request.resource.data.email is string
           && request.resource.data.photoURL is string;
+
+        allow delete: if signedIn()
+          && canReadProject(projectId)
+          && userId == request.auth.uid;
       }
     }
   }
