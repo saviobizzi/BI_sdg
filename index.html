@@ -437,6 +437,7 @@
     const BDP_DIAM=['HW','HQ','NTW','BQ'];
 
     const ALLOWED_DOMAINS=['energold.com'];
+    const ALLOWED_ADMIN_EMAILS=['saviobizzi@gmail.com'];
     const FB_CONFIG={
       apiKey:'AIzaSyD3FwQvC07rYkTy7wJZfNqICVYtXsYnrjg',
       authDomain:'bi-projetos-energold.firebaseapp.com',
@@ -458,8 +459,16 @@
     const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     const inAllowedDomain=email=>{
       if(!email) return false;
-      const d=String(email).split('@')[1]?.toLowerCase()||'';
+      const norm=String(email).trim().toLowerCase();
+      if(ALLOWED_ADMIN_EMAILS.includes(norm)) return true;
+      const d=norm.split('@')[1]||'';
       return ALLOWED_DOMAINS.length===0 || ALLOWED_DOMAINS.includes(d);
+    };
+    const accessPolicyText=()=>{
+      const parts=[];
+      if(ALLOWED_DOMAINS.length) parts.push(`domínio(s): ${ALLOWED_DOMAINS.join(', ')}`);
+      if(ALLOWED_ADMIN_EMAILS.length) parts.push(`admin(s): ${ALLOWED_ADMIN_EMAILS.join(', ')}`);
+      return parts.join(' | ') || 'acesso livre';
     };
 
     function defaults(){
@@ -1962,7 +1971,7 @@
           const email=res.user?.email||'';
           if(!inAllowedDomain(email)){
             await auth.signOut();
-            throw new Error(`Acesso permitido apenas para domínio(s): ${ALLOWED_DOMAINS.join(', ')}`);
+            throw new Error(`Acesso permitido para ${accessPolicyText()}`);
           }
         }catch(e){
           $('authError').style.display='block';
@@ -1979,7 +1988,7 @@
         if(!inAllowedDomain(user.email||'')){
           await auth.signOut();
           $('authError').style.display='block';
-          $('authError').textContent=`Conta sem permissão para domínio(s): ${ALLOWED_DOMAINS.join(', ')}`;
+          $('authError').textContent=`Conta sem permissão. Política: ${accessPolicyText()}`;
           showScreen('auth');
           return;
         }
