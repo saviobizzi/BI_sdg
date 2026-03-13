@@ -342,6 +342,7 @@
         <strong style="font-size:16px">BI Sondagem</strong>
       </div>
       <div class="proj-header-right">
+        <button class="btn btn-sec" id="btnGlobalMembers" style="padding:6px 10px">👥 Membros</button>
         <span class="tiny muted" id="projectUserName"></span>
         <img class="avatar" id="projectUserPhoto" src="" alt="user" />
         <button class="btn btn-sec" id="btnLogout" style="padding:6px 10px">Sair</button>
@@ -364,7 +365,7 @@
         <div class="card"><div class="k">Metragem total</div><div class="v" id="pfMeters">0m</div></div>
         <div class="card"><div class="k">Perfuratrizes</div><div class="v" id="pfRigs">0</div></div>
         <div class="card"><div class="k">Contrato agregado</div><div class="v" id="pfRevenue">R$ 0</div></div>
-        <div class="card"><div class="k">Saúde da carteira</div><div class="v" id="pfHealth">—</div></div>
+        <div class="card"><div class="k">Online agora</div><div class="v" id="pfOnline" style="color:var(--ok)">0</div></div>
       </div>
       <div class="project-grid" id="projectGrid"></div>
     </div>
@@ -411,6 +412,25 @@
         <div style="display:flex;gap:8px;margin-top:6px">
           <input id="newMemberEmail" class="input" placeholder="nome@empresa.com" />
           <button class="btn btn-primary" id="btnAddMember">Adicionar</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════ GLOBAL MEMBERS MODAL ════ -->
+  <section class="modal" id="globalMembersModal">
+    <div class="modal-box" style="width:min(600px,100%)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
+        <h3>Membros — todos os projetos</h3>
+        <button class="btn btn-sec" id="btnCloseGlobalMembers" style="padding:5px 9px">Fechar</button>
+      </div>
+      <div class="alert info" style="margin-bottom:12px">Adicionar aqui insere o membro em <strong>todos</strong> os projetos do portfólio de uma vez. Remover retira de todos.</div>
+      <div id="globalMembersList" class="tiny"></div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
+        <label class="tiny muted" for="globalNewMemberEmail">Adicionar e-mail a todos os projetos</label>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <input id="globalNewMemberEmail" class="input" placeholder="nome@empresa.com" />
+          <button class="btn btn-primary" id="btnGlobalAddMember">Adicionar em todos</button>
         </div>
       </div>
     </div>
@@ -518,6 +538,7 @@ function defaults() {
     valorMetroContrato: 0,
     contingencia: 10,
     retencao: 5,
+    encargosPct: 57.24,
     turnoD:'07:00-17:00',
     turnoN:'18:00-05:00',
     pessoal:[
@@ -579,6 +600,8 @@ let unsubPresence = null;
 let presenceBeat = null;
 let presenceUsers = [];
 let lastInteraction = 0;
+let globalPresenceUnsubs = [];
+let globalOnlineCount = 0;
 
 let fbApp = null, auth = null, db = null;
 try {
@@ -698,6 +721,7 @@ function recalc(source='local') {
   STATE.prazoContratual = Math.max(1, num(STATE.prazoContratual, 180));
   STATE.contingencia = Math.max(0, num(STATE.contingencia, 10));
   STATE.retencao = Math.max(0, num(STATE.retencao, 5));
+  STATE.encargosPct = Math.max(0, num(STATE.encargosPct, 57.24));
 
   CALC.contractValue = getContractValue();
   CALC.retentionValue = CALC.contractValue * (num(STATE.retencao,0)/100);
@@ -714,18 +738,23 @@ function recalc(source='local') {
   CALC.totalPlanDays = Math.max(1, num(STATE.leadTime) + CALC.basePerfDays + CALC.baseMoveDays + CALC.riskImpactDays + CALC.ssmaImpactDays + 15);
   CALC.totalPlanMonths = CALC.totalPlanDays / 30;
 
-  const encargosPct = 57.24 / 100;
+  const encargosPct = num(STATE.encargosPct, 57.24) / 100;
   let basePeople = 0, baseSalary = 0;
+  CALC.pessoalDetailed = [];
   STATE.pessoal.forEach(p => {
     let qty = p.fixo ? num(p.qtd,0) : num(p.qtd,0) * num(STATE.nPerf,1);
     if (p.special === '1 a cada 2 sondas') qty = Math.ceil(num(STATE.nPerf)/2);
     if (p.special === '1 a cada 3 perf') qty = Math.ceil(num(STATE.nPerf)/3);
     if (p.dobra) qty *= 2;
+    const salTotal = qty * num(p.sal,0);
+    const encTotal = salTotal * encargosPct;
+    CALC.pessoalDetailed.push({ nome: p.nome, effQty: qty, salUnit: num(p.sal,0), salTotal, encTotal, total: salTotal + encTotal });
     basePeople += qty;
-    baseSalary += qty * num(p.sal,0);
+    baseSalary += salTotal;
   });
   CALC.basePeople = basePeople;
   CALC.totalPeople = Math.ceil(basePeople);
+  CALC.encargosPctUsed = encargosPct;
 
   // Auto-calculate food cost by name match instead of hardcoded index
   const alimentacao = STATE.opexExtras.find(o => (o.nome||'').toLowerCase().includes('alimenta'));
@@ -1022,13 +1051,20 @@ function buildAppSkeleton() {
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
             <div class="k">Equipe operacional</div>
-            <button class="btn btn-sec" id="btnAddRole">+ Função</button>
+            <div style="display:flex;align-items:center;gap:8px">
+              <label class="tiny muted" style="white-space:nowrap">Encargos (%)</label>
+              <input type="number" class="input" id="cfgEncargos" style="width:90px;padding:5px 8px;font-size:var(--fs-xs)">
+              <button class="btn btn-sec" id="btnAddRole">+ Função</button>
+            </div>
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Função</th><th>Qtd</th><th>Salário</th><th>Fixo</th><th>Dobra</th><th>Regra</th><th></th></tr></thead>
+              <thead><tr><th>Função</th><th>Qtd base</th><th>Salário</th><th>Fixo</th><th>Dobra</th><th>Regra</th><th>Qtd efetiva</th><th>Salários</th><th>Encargos</th><th>Total</th><th></th></tr></thead>
               <tbody id="tbRoles"></tbody>
             </table>
+          </div>
+          <div class="kpi-mini" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">
+            Total folha bruta: <strong id="cfgSalaryTotal">R$ 0</strong> | Encargos: <strong id="cfgChargesTotal">R$ 0</strong> | <strong style="font-size:var(--fs-sm)" id="cfgPayrollTotal">R$ 0</strong>
           </div>
         </div>
         <div class="card">
@@ -1428,6 +1464,7 @@ function renderConfig() {
   bindInput('cfgRetencao', ()=>STATE.retencao, v=>STATE.retencao=+v);
   bindInput('cfgTurnoD', ()=>STATE.turnoD, v=>STATE.turnoD=v);
   bindInput('cfgTurnoN', ()=>STATE.turnoN, v=>STATE.turnoN=v);
+  bindInput('cfgEncargos', ()=>STATE.encargosPct, v=>STATE.encargosPct=+v);
 
   $('cfgKpiDays').textContent = `${CALC.totalPlanDays}d`;
   $('cfgKpiProd').textContent = `${fmt1(CALC.prodTotalDia)} m/d`;
@@ -1436,11 +1473,13 @@ function renderConfig() {
   $('cfgKpiShift').textContent = `${fmt1(getShiftHoursPerDay())}h`;
   $('cfgKpiMargin').textContent = CALC.contractValue > 0 ? `${fmt1(CALC.margin)}%` : '—';
 
-  // Roles table
-  $('tbRoles').innerHTML = STATE.pessoal.map((r,i) => `
-    <tr>
+  // Roles table with per-role cost breakdown
+  const det = CALC.pessoalDetailed || [];
+  $('tbRoles').innerHTML = STATE.pessoal.map((r,i) => {
+    const d = det[i] || {};
+    return `<tr>
       <td><input class="cell-input" value="${esc(r.nome||'')}" data-k="nome" data-i="${i}"></td>
-      <td><input class="cell-input cell-number mono" value="${num(r.qtd,0)}" data-k="qtd" data-i="${i}"></td>
+      <td><input class="cell-input cell-number mono cell-small" value="${num(r.qtd,0)}" data-k="qtd" data-i="${i}"></td>
       <td><input class="cell-input cell-number mono" value="${num(r.sal,0)}" data-k="sal" data-i="${i}"></td>
       <td style="text-align:center"><input type="checkbox" ${r.fixo?'checked':''} data-k="fixo" data-i="${i}"></td>
       <td style="text-align:center"><input type="checkbox" ${r.dobra?'checked':''} data-k="dobra" data-i="${i}"></td>
@@ -1451,9 +1490,16 @@ function renderConfig() {
           <option value="1 a cada 3 perf" ${r.special==='1 a cada 3 perf'?'selected':''}>1 a cada 3 perf</option>
         </select>
       </td>
+      <td class="mono tiny" style="text-align:right">${fmt(d.effQty||0)}</td>
+      <td class="mono tiny" style="text-align:right">${money(d.salTotal||0)}</td>
+      <td class="mono tiny" style="text-align:right;color:var(--warn)">${money(d.encTotal||0)}</td>
+      <td class="mono tiny" style="text-align:right;font-weight:700">${money(d.total||0)}</td>
       <td class="row-actions"><button class="btn btn-bad tiny" data-del-role="${i}" style="padding:4px 8px">Excluir</button></td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
+  $('cfgSalaryTotal').textContent = money(CALC.salaryMonth);
+  $('cfgChargesTotal').textContent = money(CALC.salaryCharges);
+  $('cfgPayrollTotal').textContent = money(CALC.totalPayroll);
   $('tbRoles').querySelectorAll('[data-k]').forEach(el => {
     el.oninput = el.onchange = () => {
       const i=+el.dataset.i, k=el.dataset.k;
@@ -1984,7 +2030,7 @@ function diffAudit(before, after) {
     ['metragem','Metragem'],['nPerf','Perfuratrizes'],['prodMdia','Produtividade'],
     ['leadTime','Lead time'],['prazoContratual','Prazo contratual'],['valorContrato','Valor contrato'],
     ['valorMetroContrato','Valor/m contrato'],['contingencia','Contingência'],['retencao','Retenção'],
-    ['turnoD','Turno diurno'],['turnoN','Turno noturno']
+    ['encargosPct','Encargos (%)'],['turnoD','Turno diurno'],['turnoN','Turno noturno']
   ];
   const out = [];
   fields.forEach(([k,l]) => {
@@ -2116,6 +2162,7 @@ async function loadProjects() {
       x.value.docs.forEach(d => map.set(d.id, {id:d.id, ...d.data()}));
     });
     renderProjects(Array.from(map.values()));
+    startGlobalPresence();
   } catch(e) {
     console.error(e);
     renderProjects(JSON.parse(localStorage.getItem('bi_projects')||'[]'));
@@ -2142,8 +2189,7 @@ function renderPortfolioSummary(projects) {
   $('pfMeters').textContent = `${fmt(meters)}m`;
   $('pfRigs').textContent = fmt(rigs);
   $('pfRevenue').textContent = money(rev);
-  $('pfHealth').textContent = total ? (attention ? 'Atenção' : 'Saudável') : '—';
-  $('pfHealth').style.color = total ? (attention ? 'var(--warn)' : 'var(--ok)') : '';
+  $('pfOnline').textContent = fmt(globalOnlineCount);
 }
 
 function renderProjects(projects) {
@@ -2313,6 +2359,7 @@ async function openProject(id) {
   pendingRemoteProject = null;
   showRemoteBanner(false);
   if (unsubProject) { unsubProject(); unsubProject = null; }
+  clearGlobalPresence();
   showLoading('Abrindo projeto...');
   try {
     if (db) {
@@ -2374,6 +2421,7 @@ function backToProjects() {
   currentProjectId = null;
   pendingRemoteProject = null;
   showRemoteBanner(false);
+  appBuilt = false;
   showScreen('projects');
   loadProjects();
 }
@@ -2487,6 +2535,7 @@ function setupUiActions() {
   $('btnLogout').onclick = () => {
     if (unsubProject) { unsubProject(); unsubProject = null; }
     clearPresence();
+    clearGlobalPresence();
     pendingRemoteProject = null;
     showRemoteBanner(false);
     appBuilt = false;
@@ -2508,6 +2557,14 @@ function setupUiActions() {
   };
   $('btnIgnoreRemote').onclick = dismissPendingRemote;
   $('btnApplyRemote').onclick = applyPendingRemote;
+
+  $('btnGlobalMembers').onclick = () => { renderGlobalMembersModal(); $('globalMembersModal').classList.add('show'); };
+  $('btnCloseGlobalMembers').onclick = () => $('globalMembersModal').classList.remove('show');
+  $('btnGlobalAddMember').onclick = async () => {
+    const email = $('globalNewMemberEmail').value.trim().toLowerCase();
+    await addGlobalMember(email);
+    $('globalNewMemberEmail').value = '';
+  };
 
   const debouncedSearch = debounce(() => {
     projectSearchTerm = String($('projectSearch').value||'').toLowerCase();
@@ -2596,6 +2653,7 @@ function setupKeyboardShortcuts() {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       $('membersModal').classList.remove('show');
+      $('globalMembersModal').classList.remove('show');
     }
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
@@ -2605,6 +2663,130 @@ function setupKeyboardShortcuts() {
       }
     }
   });
+}
+
+// ══════════════════════════════════════
+//   GLOBAL PRESENCE (portfolio level)
+// ══════════════════════════════════════
+
+function clearGlobalPresence() {
+  globalPresenceUnsubs.forEach(fn => fn());
+  globalPresenceUnsubs = [];
+  globalOnlineCount = 0;
+  if ($('pfOnline')) $('pfOnline').textContent = '0';
+}
+
+function startGlobalPresence() {
+  clearGlobalPresence();
+  if (!db || !allProjects.length) return;
+  const seen = new Set();
+  const updateCount = () => {
+    globalOnlineCount = seen.size;
+    if ($('pfOnline')) $('pfOnline').textContent = fmt(globalOnlineCount);
+  };
+  allProjects.forEach(p => {
+    if (!p.id) return;
+    const unsub = db.collection('projects').doc(p.id).collection('presence').onSnapshot(snap => {
+      const now = Date.now();
+      snap.docChanges().forEach(ch => {
+        const uid = ch.doc.id;
+        if (ch.type === 'removed') { seen.delete(uid); return; }
+        const d = ch.doc.data() || {};
+        const ms = d.lastSeen?.toDate ? d.lastSeen.toDate().getTime() : 0;
+        if (ms && now - ms <= 90000) seen.add(uid);
+        else seen.delete(uid);
+      });
+      updateCount();
+    }, () => {});
+    globalPresenceUnsubs.push(unsub);
+  });
+}
+
+// ══════════════════════════════════════
+//   GLOBAL MEMBERS MANAGEMENT
+// ══════════════════════════════════════
+
+function getGlobalMembersList() {
+  const all = new Set();
+  allProjects.forEach(p => {
+    (Array.isArray(p.members) ? p.members : []).forEach(m => { if (m) all.add(m); });
+  });
+  return [...all].sort();
+}
+
+function renderGlobalMembersModal() {
+  const members = getGlobalMembersList();
+  $('globalMembersList').innerHTML = members.length
+    ? members.map(m => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span>${esc(m)}</span><button class="btn btn-bad tiny" data-gdel-member="${esc(m)}" style="padding:4px 8px">Remover de todos</button></div>`).join('')
+    : '<div class="tiny muted">Nenhum membro encontrado nos projetos.</div>';
+  $('globalMembersList').querySelectorAll('[data-gdel-member]').forEach(btn => {
+    btn.onclick = async () => {
+      const email = btn.dataset.gdelMember;
+      if (!confirm(`Remover "${email}" de todos os projetos?`)) return;
+      await removeGlobalMember(email);
+    };
+  });
+}
+
+async function addGlobalMember(email) {
+  if (!email || !email.includes('@')) { toast('Informe um e-mail válido.', 'warn'); return; }
+  showLoading('Adicionando membro em todos os projetos...');
+  let count = 0;
+  try {
+    for (const p of allProjects) {
+      const members = Array.isArray(p.members) ? [...p.members] : [];
+      if (!members.includes(email)) {
+        members.push(email);
+        if (db) {
+          await db.collection('projects').doc(p.id).update({ members });
+        } else {
+          const local = JSON.parse(localStorage.getItem('bi_projects')||'[]');
+          const idx = local.findIndex(x => x.id === p.id);
+          if (idx >= 0) { local[idx].members = members; localStorage.setItem('bi_projects', JSON.stringify(local)); }
+        }
+        p.members = members;
+        count++;
+      }
+    }
+    hideLoading();
+    toast(`Membro adicionado em ${count} projeto(s).`, 'ok');
+    renderGlobalMembersModal();
+  } catch(e) {
+    hideLoading();
+    console.error(e);
+    toast('Erro ao adicionar membro. Verifique permissões.', 'bad');
+  }
+}
+
+async function removeGlobalMember(email) {
+  showLoading('Removendo membro de todos os projetos...');
+  let count = 0;
+  try {
+    for (const p of allProjects) {
+      const members = Array.isArray(p.members) ? [...p.members] : [];
+      const idx = members.indexOf(email);
+      if (idx >= 0) {
+        members.splice(idx, 1);
+        if (members.length === 0) continue;
+        if (db) {
+          await db.collection('projects').doc(p.id).update({ members });
+        } else {
+          const local = JSON.parse(localStorage.getItem('bi_projects')||'[]');
+          const li = local.findIndex(x => x.id === p.id);
+          if (li >= 0) { local[li].members = members; localStorage.setItem('bi_projects', JSON.stringify(local)); }
+        }
+        p.members = members;
+        count++;
+      }
+    }
+    hideLoading();
+    toast(`Membro removido de ${count} projeto(s).`, 'ok');
+    renderGlobalMembersModal();
+  } catch(e) {
+    hideLoading();
+    console.error(e);
+    toast('Erro ao remover membro. Verifique permissões.', 'bad');
+  }
 }
 
 // ══════════════════════════════════════
