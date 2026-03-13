@@ -491,6 +491,31 @@ function debounce(fn, ms=300) {
   let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 }
 
+function saveFocus() {
+  const el = document.activeElement;
+  if (!el || !['INPUT','SELECT','TEXTAREA'].includes(el.tagName)) return null;
+  let selector = el.tagName.toLowerCase();
+  if (el.id) selector = '#' + el.id;
+  else {
+    for (const attr of el.attributes) {
+      if (attr.name.startsWith('data-')) selector += `[${attr.name}="${attr.value}"]`;
+    }
+    if (el.type) selector += `[type="${el.type}"]`;
+  }
+  return { selector, selStart: el.selectionStart ?? null, selEnd: el.selectionEnd ?? null };
+}
+
+function restoreFocus(saved) {
+  if (!saved) return;
+  let el; try { el = document.querySelector(saved.selector); } catch(e) {}
+  if (!el) return;
+  el.focus();
+  try {
+    if (saved.selStart != null && typeof el.setSelectionRange === 'function')
+      el.setSelectionRange(saved.selStart, saved.selEnd);
+  } catch(e) {}
+}
+
 function inAllowedDomain(email) {
   if (!email) return false;
   const norm = String(email).trim().toLowerCase();
@@ -903,7 +928,7 @@ function captureSnapshot(force=true) {
   if (STATE.dailySnapshots.length > 180) STATE.dailySnapshots.length = 180;
   recalc();
   toast('Fechamento diário registrado.', 'ok');
-  if (activeTab === 'track') renderTrack();
+  if (activeTab === 'track') renderActiveTab();
 }
 
 function getHealth(projectLike=STATE) {
@@ -941,7 +966,10 @@ function switchTab(tab) {
 function renderActiveTab() {
   if (!appBuilt) return;
   const fn = tabRenders[activeTab];
-  if (fn) fn();
+  if (!fn) return;
+  const saved = saveFocus();
+  fn();
+  restoreFocus(saved);
 }
 
 const tabRenders = {};
@@ -1369,54 +1397,54 @@ function buildAppSkeleton() {
 
 // ── Bind Global Actions ──
 function bindGlobalActions() {
-  $('btnAddRole').onclick = () => { STATE.pessoal.push({id:uid('team'),nome:'Nova função',qtd:1,sal:0,fixo:true,dobra:false,special:''}); recalc(); renderConfig(); };
+  $('btnAddRole').onclick = () => { STATE.pessoal.push({id:uid('team'),nome:'Nova função',qtd:1,sal:0,fixo:true,dobra:false,special:''}); recalc(); renderActiveTab(); };
 
-  const addRateAction = () => { STATE.bdpRates.push({id:uid('rate'),diametro:'NOVO',precoMetro:0,ativo:true}); recalc(); if(activeTab==='bdpref') renderBDPRef(); else renderBDP(); };
+  const addRateAction = () => { STATE.bdpRates.push({id:uid('rate'),diametro:'NOVO',precoMetro:0,ativo:true}); recalc(); renderActiveTab(); };
   if ($('btnAddRateRef')) $('btnAddRateRef').onclick = addRateAction;
 
   $('btnAddBDP').onclick = () => {
     STATE.bdps.push({id:uid('bdp'),data:isoDate(),furo:`FURO-${STATE.bdps.length+1}`,profIni:0,profFim:0,diametro:'HQ',precoUnit:0,metrosPerf:0,valorPerf:0});
-    recalc(); renderBDP();
+    recalc(); renderActiveTab();
   };
   $('btnAddMed').onclick = () => {
     STATE.medicoes.push({id:uid('med'),data:isoDate(),descricao:`Medição #${STATE.medicoes.length+1}`,metros:0,valor:0,status:'pendente',recebido:0});
-    recalc(); renderMed();
+    recalc(); renderActiveTab();
   };
   $('btnAddSSMA').onclick = () => {
     STATE.ssmaEvents.push({id:uid('sev'),data:isoDate(),titulo:'Evento SSMA',impactPlanning:false,impactDays:0,responsible:'',status:'aberto'});
-    recalc(); renderSSMA();
+    recalc(); renderActiveTab();
   };
   $('btnAddStop').onclick = () => {
     STATE.paradas.push({id:uid('stop'),data:isoDate(),motivo:'',horas:0,tipo:'Mecânica'});
-    recalc(); renderSSMA();
+    recalc(); renderActiveTab();
   };
   $('btnAddPO').onclick = () => addPO();
   if ($('btnAddRisk')) $('btnAddRisk').onclick = () => {
     STATE.riscos.push({id:uid('risk'),titulo:'Novo risco',impactPlanning:false,impactDays:0,owner:'',status:'aberto'});
-    recalc(); renderRisk();
+    recalc(); renderActiveTab();
   };
   if ($('btnSnapshotToday')) $('btnSnapshotToday').onclick = () => captureSnapshot(true);
   $('btnAddAsset').onclick = () => {
     STATE.maintenanceAssets.push({id:uid('asset'),name:`Ativo ${STATE.maintenanceAssets.length+1}`,category:'Equipamento',active:true});
-    recalc(); renderManu();
+    recalc(); renderActiveTab();
   };
   $('btnAddTask').onclick = () => {
     STATE.maintenanceTasks.push({id:uid('mtask'),title:'Nova pendência',dueDate:isoDate(),responsible:'',status:'pendente'});
-    recalc(); renderManu();
+    recalc(); renderActiveTab();
   };
   $('btnAddMaint').onclick = () => {
     STATE.maintenanceRecords.push({id:uid('mrec'),data:isoDate(),assetId:'',assetName:'',comment:'',hoursDown:0,cost:0,responsible:'',status:'pendente'});
-    recalc(); renderManu();
+    recalc(); renderActiveTab();
   };
   $('btnAddOpex').onclick = () => {
     STATE.opexExtras.push({id:uid('opx'),nome:'Novo item',val:0});
-    recalc(); renderConfig();
+    recalc(); renderActiveTab();
   };
   $('btnAddCapex').onclick = () => {
     STATE.capexUnico.push({id:uid('cap'),nome:'Novo item',vUnit:0,qtd:1});
-    recalc(); renderConfig();
+    recalc(); renderActiveTab();
   };
-  $('auditSearch').oninput = renderAudit;
+  $('auditSearch').oninput = () => renderActiveTab();
 }
 
 // ── Register renders ──
@@ -1439,7 +1467,7 @@ tabRenders.audit = renderAudit;
 function bindInput(id, getter, setter, formatter=v=>v) {
   const el = $(id); if (!el) return;
   el.value = formatter(getter());
-  el.oninput = () => { setter(el.value); recalc(); if (activeTab==='config') renderConfig(); };
+  el.oninput = () => { setter(el.value); recalc(); renderActiveTab(); };
 }
 
 // ══════════════════════════════════════
@@ -1506,11 +1534,11 @@ function renderConfig() {
       if (k==='fixo' || k==='dobra') STATE.pessoal[i][k] = el.checked;
       else if (k==='qtd' || k==='sal') STATE.pessoal[i][k] = +el.value;
       else STATE.pessoal[i][k] = el.value;
-      recalc(); renderConfig();
+      recalc(); renderActiveTab();
     };
   });
   $('tbRoles').querySelectorAll('[data-del-role]').forEach(btn => {
-    btn.onclick = () => { STATE.pessoal.splice(+btn.dataset.delRole,1); recalc(); renderConfig(); };
+    btn.onclick = () => { STATE.pessoal.splice(+btn.dataset.delRole,1); recalc(); renderActiveTab(); };
   });
 
   // OPEX table
@@ -1528,11 +1556,11 @@ function renderConfig() {
       const i=+el.dataset.i, k=el.dataset.opxK;
       if (k==='val') STATE.opexExtras[i][k] = +el.value;
       else STATE.opexExtras[i][k] = el.value;
-      recalc(); renderConfig();
+      recalc(); renderActiveTab();
     };
   });
   $('tbOpex').querySelectorAll('[data-del-opx]').forEach(btn => {
-    btn.onclick = () => { STATE.opexExtras.splice(+btn.dataset.delOpx,1); recalc(); renderConfig(); };
+    btn.onclick = () => { STATE.opexExtras.splice(+btn.dataset.delOpx,1); recalc(); renderActiveTab(); };
   });
 
   // CAPEX table
@@ -1551,11 +1579,11 @@ function renderConfig() {
       const i=+el.dataset.i, k=el.dataset.capK;
       if (k==='vUnit' || k==='qtd') STATE.capexUnico[i][k] = +el.value;
       else STATE.capexUnico[i][k] = el.value;
-      recalc(); renderConfig();
+      recalc(); renderActiveTab();
     };
   });
   $('tbCapex').querySelectorAll('[data-del-cap]').forEach(btn => {
-    btn.onclick = () => { STATE.capexUnico.splice(+btn.dataset.delCap,1); recalc(); renderConfig(); };
+    btn.onclick = () => { STATE.capexUnico.splice(+btn.dataset.delCap,1); recalc(); renderActiveTab(); };
   });
 }
 
@@ -1651,11 +1679,11 @@ function renderRisk() {
       if (k==='impactPlanning') STATE.riscos[i][k] = el.checked;
       else if (k==='impactDays') STATE.riscos[i][k] = +el.value;
       else STATE.riscos[i][k] = el.value;
-      recalc(); renderRisk();
+      recalc(); renderActiveTab();
     };
   });
   $('tbRisk').querySelectorAll('[data-del-risk]').forEach(btn => {
-    btn.onclick = () => { STATE.riscos.splice(+btn.dataset.delRisk,1); recalc(); renderRisk(); };
+    btn.onclick = () => { STATE.riscos.splice(+btn.dataset.delRisk,1); recalc(); renderActiveTab(); };
   });
 }
 
@@ -1696,11 +1724,11 @@ function renderBDPRef() {
       if (k==='ativo') STATE.bdpRates[i][k] = el.checked;
       else if (k==='precoMetro') STATE.bdpRates[i][k] = +el.value;
       else STATE.bdpRates[i][k] = String(el.value||'').toUpperCase();
-      recalc(); renderBDPRef();
+      recalc(); renderActiveTab();
     };
   });
   $('tbRatesRef').querySelectorAll('[data-del-rate-ref]').forEach(btn => {
-    btn.onclick = () => { STATE.bdpRates.splice(+btn.dataset.delRateRef,1); recalc(); renderBDPRef(); };
+    btn.onclick = () => { STATE.bdpRates.splice(+btn.dataset.delRateRef,1); recalc(); renderActiveTab(); };
   });
 }
 
@@ -1733,11 +1761,11 @@ function renderBDP() {
       if (k==='profIni' || k==='profFim' || k==='precoUnit') STATE.bdps[i][k] = +el.value;
       else if (k==='diametro') STATE.bdps[i][k] = String(el.value||'').toUpperCase();
       else STATE.bdps[i][k] = el.value;
-      recalc(); renderBDP();
+      recalc(); renderActiveTab();
     };
   });
   $('tbBDP').querySelectorAll('[data-del-bdp]').forEach(btn => {
-    btn.onclick = () => { STATE.bdps.splice(+btn.dataset.delBdp,1); recalc(); renderBDP(); };
+    btn.onclick = () => { STATE.bdps.splice(+btn.dataset.delBdp,1); recalc(); renderActiveTab(); };
   });
 }
 
@@ -1766,11 +1794,11 @@ function renderMed() {
       const i=+el.dataset.i, k=el.dataset.medK;
       if (['metros','valor','recebido'].includes(k)) STATE.medicoes[i][k] = +el.value;
       else STATE.medicoes[i][k] = el.value;
-      recalc(); renderMed();
+      recalc(); renderActiveTab();
     };
   });
   $('tbMed').querySelectorAll('[data-del-med]').forEach(btn => {
-    btn.onclick = () => { STATE.medicoes.splice(+btn.dataset.delMed,1); recalc(); renderMed(); };
+    btn.onclick = () => { STATE.medicoes.splice(+btn.dataset.delMed,1); recalc(); renderActiveTab(); };
   });
 }
 
@@ -1798,11 +1826,11 @@ function renderSSMA() {
     el.oninput = () => {
       const i=+el.dataset.i, k=el.dataset.stopK;
       STATE.paradas[i][k] = (k==='horas') ? +el.value : el.value;
-      recalc(); renderSSMA();
+      recalc(); renderActiveTab();
     };
   });
   $('tbStops').querySelectorAll('[data-del-stop]').forEach(btn => {
-    btn.onclick = () => { STATE.paradas.splice(+btn.dataset.delStop,1); recalc(); renderSSMA(); };
+    btn.onclick = () => { STATE.paradas.splice(+btn.dataset.delStop,1); recalc(); renderActiveTab(); };
   });
 
   $('tbSSMAEvents').innerHTML = STATE.ssmaEvents.map((e,i) => `
@@ -1826,11 +1854,11 @@ function renderSSMA() {
       if (k==='impactPlanning') STATE.ssmaEvents[i][k] = el.checked;
       else if (k==='impactDays') STATE.ssmaEvents[i][k] = +el.value;
       else STATE.ssmaEvents[i][k] = el.value;
-      recalc(); renderSSMA();
+      recalc(); renderActiveTab();
     };
   });
   $('tbSSMAEvents').querySelectorAll('[data-del-ev]').forEach(btn => {
-    btn.onclick = () => { STATE.ssmaEvents.splice(+btn.dataset.delEv,1); recalc(); renderSSMA(); };
+    btn.onclick = () => { STATE.ssmaEvents.splice(+btn.dataset.delEv,1); recalc(); renderActiveTab(); };
   });
 }
 
@@ -1861,7 +1889,7 @@ function addPO() {
     creatorName: currentUser?.displayName || currentUser?.email || 'Usuário',
     createdAt: new Date().toISOString(), history:[]
   });
-  recalc(); renderInsu();
+  recalc(); renderActiveTab();
 }
 
 function renderInsu() {
@@ -1898,7 +1926,7 @@ function renderInsu() {
         po.history = Array.isArray(po.history) ? po.history : [];
         po.history.unshift({ts:new Date().toISOString(), de:prev, para:po.status, user:currentUser?.email||'local'});
       } else po[k] = el.value;
-      recalc(); renderInsu();
+      recalc(); renderActiveTab();
     };
   });
   $('tbPO').querySelectorAll('[data-del-po]').forEach(btn => {
@@ -1908,7 +1936,7 @@ function renderInsu() {
       if (!po || !canDeletePO(po)) return;
       if (!confirm(`Excluir PO "${po.name||''}"?`)) return;
       STATE.purchaseOrders.splice(i, 1);
-      recalc(); renderInsu();
+      recalc(); renderActiveTab();
     };
   });
 }
@@ -1932,11 +1960,11 @@ function renderManu() {
       const i=+el.dataset.i, k=el.dataset.assetK;
       if (k==='active') STATE.maintenanceAssets[i][k] = el.checked;
       else STATE.maintenanceAssets[i][k] = el.value;
-      recalc(); renderManu();
+      recalc(); renderActiveTab();
     };
   });
   $('tbAssets').querySelectorAll('[data-del-asset]').forEach(btn => {
-    btn.onclick = () => { STATE.maintenanceAssets.splice(+btn.dataset.delAsset,1); recalc(); renderManu(); };
+    btn.onclick = () => { STATE.maintenanceAssets.splice(+btn.dataset.delAsset,1); recalc(); renderActiveTab(); };
   });
 
   $('tbTasks').innerHTML = STATE.maintenanceTasks.map((t,i) => `
@@ -1956,11 +1984,11 @@ function renderManu() {
     el.oninput = el.onchange = () => {
       const i=+el.dataset.i, k=el.dataset.taskK;
       STATE.maintenanceTasks[i][k] = el.value;
-      recalc(); renderManu();
+      recalc(); renderActiveTab();
     };
   });
   $('tbTasks').querySelectorAll('[data-del-task]').forEach(btn => {
-    btn.onclick = () => { STATE.maintenanceTasks.splice(+btn.dataset.delTask,1); recalc(); renderManu(); };
+    btn.onclick = () => { STATE.maintenanceTasks.splice(+btn.dataset.delTask,1); recalc(); renderActiveTab(); };
   });
 
   $('tbMaint').innerHTML = STATE.maintenanceRecords.map((r,i) => `
@@ -1993,11 +2021,11 @@ function renderManu() {
         const a = STATE.maintenanceAssets.find(x => x.id === el.value);
         STATE.maintenanceRecords[i].assetName = a ? a.name : '';
       } else STATE.maintenanceRecords[i][k] = el.value;
-      recalc(); renderManu();
+      recalc(); renderActiveTab();
     };
   });
   $('tbMaint').querySelectorAll('[data-del-mr]').forEach(btn => {
-    btn.onclick = () => { STATE.maintenanceRecords.splice(+btn.dataset.delMr,1); recalc(); renderManu(); };
+    btn.onclick = () => { STATE.maintenanceRecords.splice(+btn.dataset.delMr,1); recalc(); renderActiveTab(); };
   });
 }
 
