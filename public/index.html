@@ -491,29 +491,10 @@ function debounce(fn, ms=300) {
   let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 }
 
-function saveFocus() {
-  const el = document.activeElement;
-  if (!el || !['INPUT','SELECT','TEXTAREA'].includes(el.tagName)) return null;
-  let selector = el.tagName.toLowerCase();
-  if (el.id) selector = '#' + el.id;
-  else {
-    for (const attr of el.attributes) {
-      if (attr.name.startsWith('data-')) selector += `[${attr.name}="${attr.value}"]`;
-    }
-    if (el.type) selector += `[type="${el.type}"]`;
-  }
-  return { selector, selStart: el.selectionStart ?? null, selEnd: el.selectionEnd ?? null };
-}
-
-function restoreFocus(saved) {
-  if (!saved) return;
-  let el; try { el = document.querySelector(saved.selector); } catch(e) {}
-  if (!el) return;
-  el.focus();
-  try {
-    if (saved.selStart != null && typeof el.setSelectionRange === 'function')
-      el.setSelectionRange(saved.selStart, saved.selEnd);
-  } catch(e) {}
+function editing(container) {
+  const ae = document.activeElement;
+  if (!ae || !['INPUT','SELECT','TEXTAREA'].includes(ae.tagName)) return false;
+  return container ? container.contains(ae) : true;
 }
 
 function inAllowedDomain(email) {
@@ -737,39 +718,39 @@ function getBdpDiamOptions() {
 function recalc(source='local') {
   if (source === 'local') lastInteraction = Date.now();
 
-  STATE.metragem = Math.max(100, num(STATE.metragem, 10000));
-  STATE.profMedia = Math.max(10, num(STATE.profMedia, 150));
-  STATE.nPerf = Math.max(1, num(STATE.nPerf, 3));
-  STATE.prodMdia = Math.max(0.5, num(STATE.prodMdia, 12));
-  STATE.diasMudanca = Math.max(0, num(STATE.diasMudanca, 2));
-  STATE.leadTime = Math.max(0, num(STATE.leadTime, 15));
-  STATE.prazoContratual = Math.max(1, num(STATE.prazoContratual, 180));
-  STATE.contingencia = Math.max(0, num(STATE.contingencia, 10));
-  STATE.retencao = Math.max(0, num(STATE.retencao, 5));
-  STATE.encargosPct = Math.max(0, num(STATE.encargosPct, 57.24));
+  const _met = Math.max(100, num(STATE.metragem, 10000));
+  const _prof = Math.max(10, num(STATE.profMedia, 150));
+  const _nP = Math.max(1, num(STATE.nPerf, 3));
+  const _prod = Math.max(0.5, num(STATE.prodMdia, 12));
+  const _mov = Math.max(0, num(STATE.diasMudanca, 2));
+  const _lead = Math.max(0, num(STATE.leadTime, 15));
+  const _prazo = Math.max(1, num(STATE.prazoContratual, 180));
+  const _cont = Math.max(0, num(STATE.contingencia, 10));
+  const _ret = Math.max(0, num(STATE.retencao, 5));
+  const _enc = Math.max(0, num(STATE.encargosPct, 57.24));
 
   CALC.contractValue = getContractValue();
-  CALC.retentionValue = CALC.contractValue * (num(STATE.retencao,0)/100);
+  CALC.retentionValue = CALC.contractValue * (_ret / 100);
   CALC.netContractValue = CALC.contractValue - CALC.retentionValue;
-  CALC.contractPerMeter = CALC.contractValue / Math.max(1, num(STATE.metragem));
+  CALC.contractPerMeter = CALC.contractValue / Math.max(1, _met);
 
-  CALC.numFuros = Math.ceil(num(STATE.metragem) / Math.max(1, num(STATE.profMedia)));
-  CALC.prodTotalDia = num(STATE.nPerf) * num(STATE.prodMdia);
-  CALC.basePerfDays = Math.ceil(num(STATE.metragem) / Math.max(1, CALC.prodTotalDia));
-  CALC.totalMudancas = Math.max(CALC.numFuros - num(STATE.nPerf), 0);
-  CALC.baseMoveDays = Math.ceil(CALC.totalMudancas / Math.max(1, num(STATE.nPerf))) * num(STATE.diasMudanca);
+  CALC.numFuros = Math.ceil(_met / Math.max(1, _prof));
+  CALC.prodTotalDia = _nP * _prod;
+  CALC.basePerfDays = Math.ceil(_met / Math.max(1, CALC.prodTotalDia));
+  CALC.totalMudancas = Math.max(CALC.numFuros - _nP, 0);
+  CALC.baseMoveDays = Math.ceil(CALC.totalMudancas / Math.max(1, _nP)) * _mov;
   CALC.riskImpactDays = STATE.riscos.filter(r => r.impactPlanning).reduce((a,r) => a+num(r.impactDays,0), 0);
   CALC.ssmaImpactDays = STATE.ssmaEvents.filter(e => e.impactPlanning).reduce((a,e) => a+num(e.impactDays,0), 0);
-  CALC.totalPlanDays = Math.max(1, num(STATE.leadTime) + CALC.basePerfDays + CALC.baseMoveDays + CALC.riskImpactDays + CALC.ssmaImpactDays + 15);
+  CALC.totalPlanDays = Math.max(1, _lead + CALC.basePerfDays + CALC.baseMoveDays + CALC.riskImpactDays + CALC.ssmaImpactDays + 15);
   CALC.totalPlanMonths = CALC.totalPlanDays / 30;
 
-  const encargosPct = num(STATE.encargosPct, 57.24) / 100;
+  const encargosPct = _enc / 100;
   let basePeople = 0, baseSalary = 0;
   CALC.pessoalDetailed = [];
   STATE.pessoal.forEach(p => {
-    let qty = p.fixo ? num(p.qtd,0) : num(p.qtd,0) * num(STATE.nPerf,1);
-    if (p.special === '1 a cada 2 sondas') qty = Math.ceil(num(STATE.nPerf)/2);
-    if (p.special === '1 a cada 3 perf') qty = Math.ceil(num(STATE.nPerf)/3);
+    let qty = p.fixo ? num(p.qtd,0) : num(p.qtd,0) * _nP;
+    if (p.special === '1 a cada 2 sondas') qty = Math.ceil(_nP / 2);
+    if (p.special === '1 a cada 3 perf') qty = Math.ceil(_nP / 3);
     if (p.dobra) qty *= 2;
     const salTotal = qty * num(p.sal,0);
     const encTotal = salTotal * encargosPct;
@@ -793,9 +774,9 @@ function recalc(source='local') {
   CALC.capexTotal = STATE.capexUnico.reduce((a,c) => a+(num(c.vUnit,0)*num(c.qtd,0)), 0);
   CALC.opexTotal = CALC.opexMonth * CALC.totalPlanMonths;
   CALC.subtotal = CALC.opexTotal + CALC.capexTotal;
-  CALC.contingency = CALC.subtotal * (num(STATE.contingencia,0)/100);
+  CALC.contingency = CALC.subtotal * (_cont / 100);
   CALC.totalCost = CALC.subtotal + CALC.contingency;
-  CALC.costPerMeter = CALC.totalCost / Math.max(1, num(STATE.metragem,1));
+  CALC.costPerMeter = CALC.totalCost / Math.max(1, _met);
   CALC.profit = CALC.netContractValue - CALC.totalCost;
   CALC.margin = CALC.netContractValue > 0 ? (CALC.profit / CALC.netContractValue)*100 : 0;
 
@@ -814,7 +795,7 @@ function recalc(source='local') {
   CALC.bdpDays = new Set(STATE.bdps.map(r => r.data).filter(Boolean)).size;
   CALC.realProd = CALC.bdpDays > 0 ? CALC.bdpMeters / CALC.bdpDays : 0;
   CALC.prodGapPct = CALC.prodTotalDia > 0 ? ((CALC.realProd - CALC.prodTotalDia)/CALC.prodTotalDia)*100 : 0;
-  CALC.physicalProgress = Math.min(100, (CALC.bdpMeters / Math.max(1, num(STATE.metragem)))*100);
+  CALC.physicalProgress = Math.min(100, (CALC.bdpMeters / Math.max(1, _met))*100);
 
   CALC.totalMeasured = STATE.medicoes.reduce((a,m) => a+num(m.metros,0), 0);
   CALC.totalBilled = STATE.medicoes.reduce((a,m) => a+num(m.valor,0), 0);
@@ -861,6 +842,7 @@ function recalc(source='local') {
   pushTL('Perfuração base', CALC.basePerfDays, 'ok');
   pushTL('Mudanças de sonda', CALC.baseMoveDays, 'info');
   pushTL('Desmobilização', 15, 'bad');
+  CALC.prazoContratual = _prazo;
   let cursor = 0;
   CALC.timeline = tl.map(it => { const s = cursor; cursor += it.days; return {...it, start:s, end:cursor}; });
 
@@ -908,7 +890,7 @@ function findDataQualityIssues() {
     if (!po.month) issues.push(`PO ${po.name||'#'+(i+1)} sem mês.`);
     if (!PO_STATUS.includes(po.status)) issues.push(`PO ${po.name||'#'+(i+1)} com status inválido.`);
   });
-  if (CALC.totalMeasured > num(STATE.metragem,0)*1.1) issues.push('Medição muito acima da metragem contratada (mais de 10%).');
+  if (num(STATE.metragem,0) > 0 && CALC.totalMeasured > num(STATE.metragem,0)*1.1) issues.push('Medição muito acima da metragem contratada (mais de 10%).');
   return issues.slice(0, 25);
 }
 
@@ -966,10 +948,7 @@ function switchTab(tab) {
 function renderActiveTab() {
   if (!appBuilt) return;
   const fn = tabRenders[activeTab];
-  if (!fn) return;
-  const saved = saveFocus();
-  fn();
-  restoreFocus(saved);
+  if (fn) fn();
 }
 
 const tabRenders = {};
@@ -1466,7 +1445,7 @@ tabRenders.audit = renderAudit;
 // ── Input binding ──
 function bindInput(id, getter, setter, formatter=v=>v) {
   const el = $(id); if (!el) return;
-  el.value = formatter(getter());
+  if (document.activeElement !== el) el.value = formatter(getter());
   el.oninput = () => { setter(el.value); recalc(); renderActiveTab(); };
 }
 
@@ -1501,90 +1480,92 @@ function renderConfig() {
   $('cfgKpiShift').textContent = `${fmt1(getShiftHoursPerDay())}h`;
   $('cfgKpiMargin').textContent = CALC.contractValue > 0 ? `${fmt1(CALC.margin)}%` : '—';
 
-  // Roles table with per-role cost breakdown
-  const det = CALC.pessoalDetailed || [];
-  $('tbRoles').innerHTML = STATE.pessoal.map((r,i) => {
-    const d = det[i] || {};
-    return `<tr>
-      <td><input class="cell-input" value="${esc(r.nome||'')}" data-k="nome" data-i="${i}"></td>
-      <td><input class="cell-input cell-number mono cell-small" value="${num(r.qtd,0)}" data-k="qtd" data-i="${i}"></td>
-      <td><input class="cell-input cell-number mono" value="${num(r.sal,0)}" data-k="sal" data-i="${i}"></td>
-      <td style="text-align:center"><input type="checkbox" ${r.fixo?'checked':''} data-k="fixo" data-i="${i}"></td>
-      <td style="text-align:center"><input type="checkbox" ${r.dobra?'checked':''} data-k="dobra" data-i="${i}"></td>
-      <td>
-        <select class="cell-input" data-k="special" data-i="${i}">
-          <option value="" ${!r.special?'selected':''}>normal</option>
-          <option value="1 a cada 2 sondas" ${r.special==='1 a cada 2 sondas'?'selected':''}>1 a cada 2 sondas</option>
-          <option value="1 a cada 3 perf" ${r.special==='1 a cada 3 perf'?'selected':''}>1 a cada 3 perf</option>
-        </select>
-      </td>
-      <td class="mono tiny" style="text-align:right">${fmt(d.effQty||0)}</td>
-      <td class="mono tiny" style="text-align:right">${money(d.salTotal||0)}</td>
-      <td class="mono tiny" style="text-align:right;color:var(--warn)">${money(d.encTotal||0)}</td>
-      <td class="mono tiny" style="text-align:right;font-weight:700">${money(d.total||0)}</td>
-      <td class="row-actions"><button class="btn btn-bad tiny" data-del-role="${i}" style="padding:4px 8px">Excluir</button></td>
-    </tr>`;
-  }).join('');
   $('cfgSalaryTotal').textContent = money(CALC.salaryMonth);
   $('cfgChargesTotal').textContent = money(CALC.salaryCharges);
   $('cfgPayrollTotal').textContent = money(CALC.totalPayroll);
-  $('tbRoles').querySelectorAll('[data-k]').forEach(el => {
-    el.oninput = el.onchange = () => {
-      const i=+el.dataset.i, k=el.dataset.k;
-      if (k==='fixo' || k==='dobra') STATE.pessoal[i][k] = el.checked;
-      else if (k==='qtd' || k==='sal') STATE.pessoal[i][k] = +el.value;
-      else STATE.pessoal[i][k] = el.value;
-      recalc(); renderActiveTab();
-    };
-  });
-  $('tbRoles').querySelectorAll('[data-del-role]').forEach(btn => {
-    btn.onclick = () => { STATE.pessoal.splice(+btn.dataset.delRole,1); recalc(); renderActiveTab(); };
-  });
-
-  // OPEX table
-  $('tbOpex').innerHTML = STATE.opexExtras.map((o,i) => {
-    const isAuto = (o.nome||'').toLowerCase().includes('alimenta');
-    return `<tr>
-      <td><input class="cell-input" value="${esc(o.nome||'')}" data-opx-k="nome" data-i="${i}"></td>
-      <td><input class="cell-input cell-number mono" value="${num(o.val,0)}" ${isAuto?'disabled title="Calculado automaticamente"':''} data-opx-k="val" data-i="${i}"></td>
-      <td class="row-actions"><button class="btn btn-bad tiny" data-del-opx="${i}" style="padding:4px 8px">Excluir</button></td>
-    </tr>`;
-  }).join('');
   $('cfgOpexTotal').textContent = money(CALC.opexExtrasMonth);
-  $('tbOpex').querySelectorAll('[data-opx-k]').forEach(el => {
-    el.oninput = () => {
-      const i=+el.dataset.i, k=el.dataset.opxK;
-      if (k==='val') STATE.opexExtras[i][k] = +el.value;
-      else STATE.opexExtras[i][k] = el.value;
-      recalc(); renderActiveTab();
-    };
-  });
-  $('tbOpex').querySelectorAll('[data-del-opx]').forEach(btn => {
-    btn.onclick = () => { STATE.opexExtras.splice(+btn.dataset.delOpx,1); recalc(); renderActiveTab(); };
-  });
-
-  // CAPEX table
-  $('tbCapex').innerHTML = STATE.capexUnico.map((c,i) => `
-    <tr>
-      <td><input class="cell-input" value="${esc(c.nome||'')}" data-cap-k="nome" data-i="${i}"></td>
-      <td><input class="cell-input cell-number mono" value="${num(c.vUnit,0)}" data-cap-k="vUnit" data-i="${i}"></td>
-      <td><input class="cell-input cell-number mono cell-small" value="${num(c.qtd,0)}" data-cap-k="qtd" data-i="${i}"></td>
-      <td class="mono">${money(num(c.vUnit,0)*num(c.qtd,0))}</td>
-      <td class="row-actions"><button class="btn btn-bad tiny" data-del-cap="${i}" style="padding:4px 8px">Excluir</button></td>
-    </tr>
-  `).join('');
   $('cfgCapexTotal').textContent = money(CALC.capexTotal);
-  $('tbCapex').querySelectorAll('[data-cap-k]').forEach(el => {
-    el.oninput = () => {
-      const i=+el.dataset.i, k=el.dataset.capK;
-      if (k==='vUnit' || k==='qtd') STATE.capexUnico[i][k] = +el.value;
-      else STATE.capexUnico[i][k] = el.value;
-      recalc(); renderActiveTab();
-    };
-  });
-  $('tbCapex').querySelectorAll('[data-del-cap]').forEach(btn => {
-    btn.onclick = () => { STATE.capexUnico.splice(+btn.dataset.delCap,1); recalc(); renderActiveTab(); };
-  });
+
+  if (!editing($('tbRoles'))) {
+    const det = CALC.pessoalDetailed || [];
+    $('tbRoles').innerHTML = STATE.pessoal.map((r,i) => {
+      const d = det[i] || {};
+      return `<tr>
+        <td><input class="cell-input" value="${esc(r.nome||'')}" data-k="nome" data-i="${i}"></td>
+        <td><input class="cell-input cell-number mono cell-small" value="${num(r.qtd,0)}" data-k="qtd" data-i="${i}"></td>
+        <td><input class="cell-input cell-number mono" value="${num(r.sal,0)}" data-k="sal" data-i="${i}"></td>
+        <td style="text-align:center"><input type="checkbox" ${r.fixo?'checked':''} data-k="fixo" data-i="${i}"></td>
+        <td style="text-align:center"><input type="checkbox" ${r.dobra?'checked':''} data-k="dobra" data-i="${i}"></td>
+        <td><select class="cell-input" data-k="special" data-i="${i}">
+          <option value="" ${!r.special?'selected':''}>normal</option>
+          <option value="1 a cada 2 sondas" ${r.special==='1 a cada 2 sondas'?'selected':''}>1 a cada 2 sondas</option>
+          <option value="1 a cada 3 perf" ${r.special==='1 a cada 3 perf'?'selected':''}>1 a cada 3 perf</option>
+        </select></td>
+        <td class="mono tiny" style="text-align:right">${fmt(d.effQty||0)}</td>
+        <td class="mono tiny" style="text-align:right">${money(d.salTotal||0)}</td>
+        <td class="mono tiny" style="text-align:right;color:var(--warn)">${money(d.encTotal||0)}</td>
+        <td class="mono tiny" style="text-align:right;font-weight:700">${money(d.total||0)}</td>
+        <td class="row-actions"><button class="btn btn-bad tiny" data-del-role="${i}" style="padding:4px 8px">Excluir</button></td>
+      </tr>`;
+    }).join('');
+    $('tbRoles').querySelectorAll('[data-k]').forEach(el => {
+      el.oninput = el.onchange = () => {
+        const i=+el.dataset.i, k=el.dataset.k;
+        if (k==='fixo' || k==='dobra') STATE.pessoal[i][k] = el.checked;
+        else if (k==='qtd' || k==='sal') STATE.pessoal[i][k] = +el.value;
+        else STATE.pessoal[i][k] = el.value;
+        recalc(); renderActiveTab();
+      };
+    });
+    $('tbRoles').querySelectorAll('[data-del-role]').forEach(btn => {
+      btn.onclick = () => { STATE.pessoal.splice(+btn.dataset.delRole,1); recalc(); renderActiveTab(); };
+    });
+  }
+
+  if (!editing($('tbOpex'))) {
+    $('tbOpex').innerHTML = STATE.opexExtras.map((o,i) => {
+      const isAuto = (o.nome||'').toLowerCase().includes('alimenta');
+      return `<tr>
+        <td><input class="cell-input" value="${esc(o.nome||'')}" data-opx-k="nome" data-i="${i}"></td>
+        <td><input class="cell-input cell-number mono" value="${num(o.val,0)}" ${isAuto?'disabled title="Calculado automaticamente"':''} data-opx-k="val" data-i="${i}"></td>
+        <td class="row-actions"><button class="btn btn-bad tiny" data-del-opx="${i}" style="padding:4px 8px">Excluir</button></td>
+      </tr>`;
+    }).join('');
+    $('tbOpex').querySelectorAll('[data-opx-k]').forEach(el => {
+      el.oninput = () => {
+        const i=+el.dataset.i, k=el.dataset.opxK;
+        if (k==='val') STATE.opexExtras[i][k] = +el.value;
+        else STATE.opexExtras[i][k] = el.value;
+        recalc(); renderActiveTab();
+      };
+    });
+    $('tbOpex').querySelectorAll('[data-del-opx]').forEach(btn => {
+      btn.onclick = () => { STATE.opexExtras.splice(+btn.dataset.delOpx,1); recalc(); renderActiveTab(); };
+    });
+  }
+
+  if (!editing($('tbCapex'))) {
+    $('tbCapex').innerHTML = STATE.capexUnico.map((c,i) => `
+      <tr>
+        <td><input class="cell-input" value="${esc(c.nome||'')}" data-cap-k="nome" data-i="${i}"></td>
+        <td><input class="cell-input cell-number mono" value="${num(c.vUnit,0)}" data-cap-k="vUnit" data-i="${i}"></td>
+        <td><input class="cell-input cell-number mono cell-small" value="${num(c.qtd,0)}" data-cap-k="qtd" data-i="${i}"></td>
+        <td class="mono">${money(num(c.vUnit,0)*num(c.qtd,0))}</td>
+        <td class="row-actions"><button class="btn btn-bad tiny" data-del-cap="${i}" style="padding:4px 8px">Excluir</button></td>
+      </tr>
+    `).join('');
+    $('tbCapex').querySelectorAll('[data-cap-k]').forEach(el => {
+      el.oninput = () => {
+        const i=+el.dataset.i, k=el.dataset.capK;
+        if (k==='vUnit' || k==='qtd') STATE.capexUnico[i][k] = +el.value;
+        else STATE.capexUnico[i][k] = el.value;
+        recalc(); renderActiveTab();
+      };
+    });
+    $('tbCapex').querySelectorAll('[data-del-cap]').forEach(btn => {
+      btn.onclick = () => { STATE.capexUnico.splice(+btn.dataset.delCap,1); recalc(); renderActiveTab(); };
+    });
+  }
 }
 
 function renderTeam() {
@@ -1659,6 +1640,7 @@ function renderRisk() {
   $('rImpactItems').textContent = fmt(CALC.riskItems||0);
   $('rOpen').textContent = fmt(CALC.openRisks||0);
   $('rSSMAItems').textContent = fmt(CALC.ssmaImpactItems||0);
+  if (editing($('tbRisk'))) return;
   $('tbRisk').innerHTML = STATE.riscos.map((r,i) => `
     <tr>
       <td><input class="cell-input" value="${esc(r.titulo||'')}" data-risk-k="titulo" data-i="${i}"></td>
@@ -1710,6 +1692,7 @@ function renderCrono() {
 }
 
 function renderBDPRef() {
+  if (editing($('tbRatesRef'))) return;
   $('tbRatesRef').innerHTML = STATE.bdpRates.map((r,i) => `
     <tr>
       <td><input class="cell-input cell-small mono" value="${esc(r.diametro||'')}" data-rate-ref-k="diametro" data-i="${i}"></td>
@@ -1739,8 +1722,8 @@ function renderBDP() {
   $('bGap').textContent = `${fmt1(CALC.prodGapPct)}%`;
   $('bGap').style.color = CALC.prodGapPct >= 0 ? 'var(--ok)' : 'var(--bad)';
 
+  if (editing($('tbBDP'))) return;
   const diamOptions = getBdpDiamOptions();
-
   $('tbBDP').innerHTML = STATE.bdps.map((r,i) => `
     <tr>
       <td><input type="date" class="cell-input cell-date" value="${esc(r.data||'')}" data-bdp-k="data" data-i="${i}"></td>
@@ -1774,6 +1757,7 @@ function renderMed() {
   $('mBilled').textContent = money(CALC.totalBilled);
   $('mReceived').textContent = money(CALC.totalReceived);
   $('mRemaining').textContent = money(Math.max(0, CALC.contractValue - CALC.totalBilled));
+  if (editing($('tbMed'))) return;
   $('tbMed').innerHTML = STATE.medicoes.map((m,i) => `
     <tr>
       <td><input type="date" class="cell-input cell-date" value="${esc(m.data||'')}" data-med-k="data" data-i="${i}"></td>
@@ -1813,6 +1797,7 @@ function renderSSMA() {
   bindInput('ssExp', ()=>STATE.ssma.horasExposicao, v=>STATE.ssma.horasExposicao=+v);
   bindInput('ssDpt', ()=>STATE.ssma.dpt, v=>STATE.ssma.dpt=+v);
 
+  if (!editing($('tbStops'))) {
   $('tbStops').innerHTML = STATE.paradas.map((p,i) => `
     <tr>
       <td><input type="date" class="cell-input cell-date" value="${esc(p.data||'')}" data-stop-k="data" data-i="${i}"></td>
@@ -1832,7 +1817,9 @@ function renderSSMA() {
   $('tbStops').querySelectorAll('[data-del-stop]').forEach(btn => {
     btn.onclick = () => { STATE.paradas.splice(+btn.dataset.delStop,1); recalc(); renderActiveTab(); };
   });
+  }
 
+  if (!editing($('tbSSMAEvents'))) {
   $('tbSSMAEvents').innerHTML = STATE.ssmaEvents.map((e,i) => `
     <tr>
       <td><input type="date" class="cell-input cell-date" value="${esc(e.data||'')}" data-ev-k="data" data-i="${i}"></td>
@@ -1860,6 +1847,7 @@ function renderSSMA() {
   $('tbSSMAEvents').querySelectorAll('[data-del-ev]').forEach(btn => {
     btn.onclick = () => { STATE.ssmaEvents.splice(+btn.dataset.delEv,1); recalc(); renderActiveTab(); };
   });
+  }
 }
 
 function renderTrack() {
@@ -1899,6 +1887,7 @@ function renderInsu() {
   $('iApproved').textContent = money(totals.aprovada||0);
   $('iRejected').textContent = money(totals.reprovada||0);
   $('iTotal').textContent = money((totals.aguardando||0) + (totals.aprovada||0) + (totals.reprovada||0));
+  if (editing($('tbPO'))) return;
   $('tbPO').innerHTML = STATE.purchaseOrders.map((po,i) => `
     <tr>
       <td>${esc(po.name||'')}</td>
@@ -1947,6 +1936,7 @@ function renderManu() {
   $('maTasks').textContent = fmt(CALC.pendingTasks);
   $('maAvail').textContent = `${fmt1(CALC.availability)}%`;
 
+  if (!editing($('tbAssets'))) {
   $('tbAssets').innerHTML = STATE.maintenanceAssets.map((a,i) => `
     <tr>
       <td><input class="cell-input" value="${esc(a.name||'')}" data-asset-k="name" data-i="${i}"></td>
@@ -1966,7 +1956,9 @@ function renderManu() {
   $('tbAssets').querySelectorAll('[data-del-asset]').forEach(btn => {
     btn.onclick = () => { STATE.maintenanceAssets.splice(+btn.dataset.delAsset,1); recalc(); renderActiveTab(); };
   });
+  }
 
+  if (!editing($('tbTasks'))) {
   $('tbTasks').innerHTML = STATE.maintenanceTasks.map((t,i) => `
     <tr>
       <td><input class="cell-input" value="${esc(t.title||'')}" data-task-k="title" data-i="${i}"></td>
@@ -1990,7 +1982,9 @@ function renderManu() {
   $('tbTasks').querySelectorAll('[data-del-task]').forEach(btn => {
     btn.onclick = () => { STATE.maintenanceTasks.splice(+btn.dataset.delTask,1); recalc(); renderActiveTab(); };
   });
+  }
 
+  if (!editing($('tbMaint'))) {
   $('tbMaint').innerHTML = STATE.maintenanceRecords.map((r,i) => `
     <tr>
       <td><input type="date" class="cell-input cell-date" value="${esc(r.data||isoDate())}" data-mr-k="data" data-i="${i}"></td>
@@ -2027,6 +2021,7 @@ function renderManu() {
   $('tbMaint').querySelectorAll('[data-del-mr]').forEach(btn => {
     btn.onclick = () => { STATE.maintenanceRecords.splice(+btn.dataset.delMr,1); recalc(); renderActiveTab(); };
   });
+  }
 }
 
 function renderAudit() {
