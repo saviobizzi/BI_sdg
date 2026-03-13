@@ -1,0 +1,127 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userEmail() {
+      return request.auth.token.email != null ? request.auth.token.email : '';
+    }
+
+    function userUid() {
+      return request.auth.uid;
+    }
+
+    function memberListExists(data) {
+      return data.members is list;
+    }
+
+    function creatorMatches(data) {
+      return data.createdBy == userEmail() || data.createdBy == userUid();
+    }
+
+    function memberMatches(data) {
+      return signedIn() && (
+        (
+          memberListExists(data) &&
+          (userEmail() in data.members || userUid() in data.members)
+        ) || creatorMatches(data)
+      );
+    }
+
+    function legacyCreatorBlank(data) {
+      return !(data.keys().hasAny(['createdBy'])) || data.createdBy == null || data.createdBy == '';
+    }
+
+    function projectDoc(projectId) {
+      return get(/databases/$(database)/documents/projects/$(projectId));
+    }
+
+    function canReadProject(projectId) {
+      return projectDoc(projectId).exists() && memberMatches(projectDoc(projectId).data);
+    }
+
+    function hasRequiredProjectFields(data) {
+      return data.keys().hasAll([
+        'name',
+        'cliente',
+        'local',
+        'createdBy',
+        'createdAt',
+        'members'
+      ]);
+    }
+
+    function hasExpectedProjectTypes(data) {
+      return data.name is string
+        && data.cliente is string
+        && data.local is string
+        && data.createdBy is string
+        && data.createdAt is string
+        && data.members is list;
+    }
+
+    function memberListSafe(data) {
+      return memberListExists(data)
+        && data.members.size() > 0
+        && data.members.size() <= 120
+        && (userEmail() in data.members || userUid() in data.members);
+    }
+
+    function immutableCoreFieldsPreserved() {
+      return request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function validStatus(value) {
+      return value in ['aguardando', 'aprovada', 'reprovada', 'pendente', 'em-analise', 'resolvido', 'aberto', 'concluida'];
+    }
+
+    match /projects/{projectId} {
+      allow get, list: if signedIn() && memberMatches(resource.data);
+
+      allow create: if signedIn()
+        && hasRequiredProjectFields(request.resource.data)
+        && hasExpectedProjectTypes(request.resource.data)
+        && creatorMatches(request.resource.data)
+        && memberListSafe(request.resource.data);
+
+      allow update: if signedIn()
+        && memberMatches(resource.data)
+        && immutableCoreFieldsPreserved()
+        && hasRequiredProjectFields(request.resource.data)
+        && hasExpectedProjectTypes(request.resource.data)
+        && memberListSafe(request.resource.data)
+        && (
+          // Se existir status no documento de update, mantém lista segura de valores.
+          !(request.resource.data.keys().hasAny(['status'])) ||
+          validStatus(request.resource.data.status)
+        );
+
+      allow delete: if signedIn()
+        && (
+          creatorMatches(resource.data)
+          || (legacyCreatorBlank(resource.data) && memberMatches(resource.data))
+        );
+
+      match /presence/{userId} {
+        allow read: if signedIn() && canReadProject(projectId);
+
+        allow create, update: if signedIn()
+          && canReadProject(projectId)
+          && userId == request.auth.uid
+          && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'photoURL', 'lastSeen'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.name is string
+          && request.resource.data.email is string
+          && request.resource.data.photoURL is string;
+
+        allow delete: if signedIn()
+          && canReadProject(projectId)
+          && userId == request.auth.uid;
+      }
+    }
+  }
+}

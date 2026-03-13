@@ -1,0 +1,2342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BI Sondagem — Energold</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --bg:#090e18;
+      --bg2:#101828;
+      --panel:#1a2336;
+      --panel-2:#0f172a;
+      --line:#2a3b5a;
+      --txt:#e9edf6;
+      --muted:#9baccb;
+      --subtle:#6f819f;
+      --warn:#f59e0b;
+      --ok:#10b981;
+      --bad:#ef4444;
+      --info:#06b6d4;
+      --vio:#8b5cf6;
+      --radius:12px;
+      --radius-sm:8px;
+      --shadow:0 12px 26px rgba(0,0,0,.2);
+      --fs-xxs:11px;
+      --fs-xs:12px;
+      --fs-sm:13px;
+      --fs-md:14px;
+      --fs-lg:16px;
+      --fs-xl:22px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{
+      font-family:'DM Sans',sans-serif;
+      background:linear-gradient(160deg,#060a12,#111b2e 50%,#0b1020);
+      color:var(--txt);
+      line-height:1.45;
+    }
+    .mono{font-family:'Space Mono',monospace}
+    .app-hidden{display:none!important}
+
+    .auth-screen{
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      padding:20px;
+    }
+    .auth-card{
+      width:min(420px,95vw);
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:28px;
+      box-shadow:var(--shadow);
+      text-align:center;
+    }
+    .auth-card h1{font-size:24px;margin:8px 0 4px}
+    .auth-card p{font-size:var(--fs-sm);color:var(--muted);margin-bottom:18px}
+    .auth-error{
+      margin-top:10px;
+      background:rgba(239,68,68,.1);
+      color:#ff7d7d;
+      border:1px solid rgba(239,68,68,.35);
+      border-radius:var(--radius-sm);
+      padding:8px 10px;
+      font-size:var(--fs-xs);
+      display:none;
+      text-align:left;
+    }
+
+    .btn{
+      border:none;
+      border-radius:10px;
+      font-family:inherit;
+      font-size:var(--fs-sm);
+      font-weight:700;
+      cursor:pointer;
+      transition:.2s ease;
+      padding:9px 14px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      justify-content:center;
+      white-space:nowrap;
+    }
+    .btn:hover{transform:translateY(-1px)}
+    .btn-primary{
+      color:#121212;
+      background:linear-gradient(135deg,#fbbf24,#f97316);
+      box-shadow:0 6px 18px rgba(249,115,22,.24);
+    }
+    .btn-sec{
+      color:var(--txt);
+      background:rgba(255,255,255,.03);
+      border:1px solid var(--line);
+    }
+    .btn-bad{
+      color:#ff8f8f;
+      background:rgba(239,68,68,.12);
+      border:1px solid rgba(239,68,68,.3);
+    }
+    .btn-ghost{
+      color:var(--muted);
+      background:none;
+      border:1px dashed var(--line);
+    }
+
+    .proj-screen,.bi-wrap{display:none}
+    .proj-header{
+      position:sticky;top:0;z-index:60;
+      background:linear-gradient(135deg,#0d1529,#1a1142);
+      border-bottom:1px solid var(--line);
+      padding:12px 18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .proj-header-left{display:flex;align-items:center;gap:10px}
+    .proj-header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .avatar{width:30px;height:30px;border-radius:50%;border:2px solid var(--line)}
+
+    .container{max-width:1480px;margin:0 auto;padding:16px 20px 26px}
+    .topline{
+      display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px
+    }
+    .topline h2{font-size:26px}
+    .topline p{font-size:var(--fs-md);color:var(--muted)}
+    .search-wrap{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+    .input,.select{
+      width:100%;
+      background:var(--panel-2);
+      border:1px solid var(--line);
+      color:var(--txt);
+      border-radius:var(--radius-sm);
+      font-size:var(--fs-sm);
+      padding:9px 10px;
+      font-family:inherit;
+    }
+    .input::placeholder{color:var(--subtle)}
+    .input:focus,.select:focus{outline:none;border-color:var(--warn)}
+    .input-sm{padding:6px 8px;font-size:var(--fs-xs)}
+
+    .portfolio{
+      display:grid;
+      grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:10px;
+      margin-bottom:14px;
+    }
+    .card{
+      background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      padding:14px;
+      box-shadow:var(--shadow);
+    }
+    .card .k{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.35px;color:var(--subtle);margin-bottom:5px}
+    .card .v{font-size:var(--fs-xl);font-weight:800;font-family:'Space Mono',monospace}
+
+    .project-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(270px,1fr));
+      gap:12px;
+    }
+    .project-tile{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:14px;
+      cursor:pointer;
+      transition:.2s ease;
+      position:relative;
+      overflow:hidden;
+    }
+    .project-tile:hover{transform:translateY(-2px);border-color:var(--warn)}
+    .project-tile::before{
+      content:"";
+      position:absolute;left:0;top:0;right:0;height:3px;
+      background:linear-gradient(90deg,#f59e0b,#f97316);
+    }
+    .tile-head{display:flex;justify-content:space-between;gap:8px}
+    .tile-title{font-size:var(--fs-lg);font-weight:800}
+    .tile-meta{color:var(--muted);font-size:var(--fs-xs)}
+    .badge{
+      display:inline-flex;align-items:center;gap:4px;
+      border-radius:999px;padding:3px 8px;font-size:10px;font-weight:700;text-transform:uppercase
+    }
+    .badge.ok{background:rgba(16,185,129,.13);color:var(--ok)}
+    .badge.warn{background:rgba(245,158,11,.13);color:var(--warn)}
+    .badge.bad{background:rgba(239,68,68,.13);color:var(--bad)}
+    .tiny{font-size:var(--fs-xxs)}
+    .muted{color:var(--muted)}
+    .subtle{color:var(--subtle)}
+
+    .toolbar{
+      position:sticky;top:0;z-index:80;
+      background:linear-gradient(135deg,#0d1529,#1a1142);
+      border-bottom:1px solid var(--line);
+      padding:10px 14px;
+      display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    }
+    .toolbar-left,.toolbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .pill{
+      display:inline-flex;align-items:center;gap:6px;
+      background:rgba(255,255,255,.03);
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:5px 10px;
+      font-size:var(--fs-xs);
+      color:var(--muted);
+    }
+    .pill strong{color:var(--txt)}
+
+    .tabs{
+      position:sticky;top:58px;z-index:70;
+      border-bottom:1px solid var(--line);
+      background:rgba(16,24,40,.9);
+      backdrop-filter:blur(8px);
+      display:flex;gap:2px;overflow:auto;padding:0 12px;
+    }
+    .tab-btn{
+      border:none;background:none;color:var(--subtle);
+      padding:10px 12px;cursor:pointer;font-size:var(--fs-xs);font-weight:700;
+      border-bottom:2px solid transparent;white-space:nowrap
+    }
+    .tab-btn.active{color:var(--warn);border-bottom-color:var(--warn)}
+    .tab{display:none}
+    .tab.active{display:block;animation:fade .2s ease}
+    @keyframes fade{from{opacity:.4;transform:translateY(3px)}to{opacity:1;transform:none}}
+
+    .section-title{font-size:24px;font-weight:800;margin-bottom:4px}
+    .section-sub{font-size:var(--fs-sm);color:var(--muted);margin-bottom:12px}
+
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .grid-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .grid-6{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+    .fw{grid-column:1/-1}
+
+    .table-wrap{overflow:auto}
+    table{width:100%;border-collapse:collapse;font-size:var(--fs-xs)}
+    th{
+      text-align:left;font-weight:700;color:var(--muted);
+      text-transform:uppercase;letter-spacing:.25px;font-size:10px;
+      background:var(--panel-2);padding:8px;border-bottom:1px solid var(--line);white-space:nowrap;
+    }
+    td{padding:7px;border-bottom:1px solid rgba(42,59,90,.45);vertical-align:middle}
+    tr:hover td{background:rgba(255,255,255,.02)}
+    .cell-input{
+      width:100%;
+      background:var(--panel-2);
+      color:var(--txt);
+      border:1px solid var(--line);
+      border-radius:6px;
+      font-size:var(--fs-xs);
+      padding:5px 6px;
+      font-family:inherit;
+    }
+    .cell-input.mono{font-family:'Space Mono',monospace}
+    .cell-input:focus{outline:none;border-color:var(--warn)}
+    .cell-number{max-width:120px;text-align:right}
+    .cell-date{max-width:132px}
+    .cell-small{max-width:72px}
+    .cell-mid{max-width:155px}
+    .row-actions{display:flex;gap:6px;justify-content:flex-end}
+
+    .alert{
+      border-left:3px solid var(--info);
+      background:rgba(6,182,212,.08);
+      padding:9px 10px;
+      border-radius:8px;
+      margin-bottom:8px;
+      font-size:var(--fs-xs);
+    }
+    .alert.warn{border-left-color:var(--warn);background:rgba(245,158,11,.08)}
+    .alert.bad{border-left-color:var(--bad);background:rgba(239,68,68,.1)}
+    .alert.ok{border-left-color:var(--ok);background:rgba(16,185,129,.09)}
+
+    .kpi-mini{font-size:var(--fs-xs);color:var(--muted)}
+    .kpi-mini strong{color:var(--txt)}
+    .progress{
+      height:8px;border-radius:999px;background:rgba(255,255,255,.05);overflow:hidden;
+      margin-top:6px
+    }
+    .progress > div{height:100%;background:linear-gradient(90deg,#10b981,#06b6d4)}
+
+    .modal{
+      position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;place-items:center;z-index:100;
+      padding:16px;
+    }
+    .modal.show{display:grid}
+    .modal-box{
+      width:min(520px,100%);
+      max-height:85vh;overflow:auto;
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:16px;
+    }
+
+    .remote-banner{
+      display:none;
+      position:sticky;top:100px;z-index:85;
+      margin:8px 14px 0;
+      border:1px solid rgba(59,130,246,.3);
+      background:rgba(59,130,246,.1);
+      border-radius:10px;
+      padding:10px;
+      align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    }
+    .remote-banner.show{display:flex}
+
+    @media (max-width:1200px){
+      .portfolio{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .grid-6{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+    @media (max-width:900px){
+      .grid-2,.grid-3,.grid-4,.grid-6,.portfolio{grid-template-columns:1fr}
+      .tabs{top:0;position:relative}
+      .toolbar{position:relative}
+      .container{padding:12px}
+      .topline h2{font-size:22px}
+    }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <section class="auth-screen" id="authScreen">
+    <div class="auth-card">
+      <img src="https://energold.com/_resources/logos/energold-logo-transparent.png" alt="Energold" style="height:42px" onerror="this.outerHTML='<div style=&quot;font-size:34px&quot;>⛏</div>'" />
+      <h1>BI Sondagem</h1>
+      <p>Controle integrado de projeto: cronograma, BDP, medição, SSMA, manutenção e auditoria.</p>
+      <button class="btn btn-primary" id="btnLogin">
+        <svg viewBox="0 0 24 24" width="18" height="18"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        Entrar com Google
+      </button>
+      <div class="auth-error" id="authError"></div>
+      <div class="tiny subtle" style="margin-top:10px">Acesso restrito a contas autorizadas.</div>
+    </div>
+  </section>
+
+  <section class="proj-screen" id="projectScreen">
+    <header class="proj-header">
+      <div class="proj-header-left">
+        <img src="https://energold.com/_resources/logos/energold-logo-transparent.png" alt="logo" style="height:24px" onerror="this.outerHTML='⛏'" />
+        <strong style="font-size:16px">BI Sondagem</strong>
+      </div>
+      <div class="proj-header-right">
+        <span class="tiny muted" id="projectUserName"></span>
+        <img class="avatar" id="projectUserPhoto" src="" alt="user" />
+        <button class="btn btn-sec" id="btnLogout" style="padding:6px 10px">Sair</button>
+      </div>
+    </header>
+    <div class="container">
+      <div class="topline">
+        <div>
+          <h2>Portfólio de Projetos</h2>
+          <p>Visão consolidada para operação, planejamento e diretoria.</p>
+        </div>
+        <div class="search-wrap">
+          <input class="input" id="projectSearch" style="min-width:280px" placeholder="Buscar por nome, cliente ou local" />
+          <button class="btn btn-sec" id="btnClearSearch">Limpar</button>
+        </div>
+      </div>
+
+      <div class="portfolio">
+        <div class="card"><div class="k">Projetos</div><div class="v" id="pfProjects">0</div></div>
+        <div class="card"><div class="k">Em atenção</div><div class="v" id="pfAttention">0</div></div>
+        <div class="card"><div class="k">Metragem total</div><div class="v" id="pfMeters">0m</div></div>
+        <div class="card"><div class="k">Perfuratrizes</div><div class="v" id="pfRigs">0</div></div>
+        <div class="card"><div class="k">Contrato agregado</div><div class="v" id="pfRevenue">R$ 0</div></div>
+        <div class="card"><div class="k">Saúde da carteira</div><div class="v" id="pfHealth">—</div></div>
+      </div>
+
+      <div class="project-grid" id="projectGrid"></div>
+    </div>
+  </section>
+
+  <section class="bi-wrap" id="biWrap">
+    <header class="toolbar">
+      <div class="toolbar-left">
+        <div class="pill">Projeto <strong id="kProject">—</strong></div>
+        <div class="pill">Saúde <strong id="kHealth">—</strong></div>
+        <div class="pill">Prazo <strong id="kDeadline">—</strong></div>
+        <div class="pill">Margem <strong id="kMargin">—</strong></div>
+        <div class="pill">Sync <strong id="kSync">on</strong></div>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-sec" id="btnMembers">Membros</button>
+        <button class="btn btn-sec" id="btnExport">Exportar CSV</button>
+        <button class="btn btn-sec" id="btnBack">Projetos</button>
+      </div>
+    </header>
+
+    <div class="tabs" id="tabsBar"></div>
+    <div class="remote-banner" id="remoteBanner">
+      <div class="tiny"><strong>Atualização remota disponível.</strong> Revise e aplique após concluir a edição local.</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sec" id="btnIgnoreRemote">Ignorar agora</button>
+        <button class="btn btn-primary" id="btnApplyRemote">Aplicar atualização</button>
+      </div>
+    </div>
+
+    <main class="container" id="app"></main>
+  </section>
+
+  <section class="modal" id="membersModal">
+    <div class="modal-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
+        <h3>Membros autorizados</h3>
+        <button class="btn btn-sec" id="btnCloseMembers" style="padding:5px 9px">Fechar</button>
+      </div>
+      <div id="membersList" class="tiny"></div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
+        <label class="tiny muted" for="newMemberEmail">Adicionar e-mail</label>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <input id="newMemberEmail" class="input" placeholder="nome@empresa.com" />
+          <button class="btn btn-primary" id="btnAddMember">Adicionar</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const COLORS=['warn','bad','info','ok','vio'];
+    const PO_STATUS=['aguardando','aprovada','reprovada'];
+    const MAINT_STATUS=['pendente','em-analise','resolvido'];
+    const EVENT_STATUS=['aberto','em-analise','resolvido'];
+    const BDP_DIAM=['HW','HQ','NTW','BQ'];
+
+    const ALLOWED_DOMAINS=['energold.com'];
+    const ALLOWED_ADMIN_EMAILS=['saviobizzi@gmail.com'];
+    const FB_CONFIG={
+      apiKey:'AIzaSyD3FwQvC07rYkTy7wJZfNqICVYtXsYnrjg',
+      authDomain:'bi-projetos-energold.firebaseapp.com',
+      projectId:'bi-projetos-energold',
+      storageBucket:'bi-projetos-energold.firebasestorage.app',
+      messagingSenderId:'125635470443',
+      appId:'1:125635470443:web:4dbece876d99177033fd2e'
+    };
+
+    const $=id=>document.getElementById(id);
+    const uid=(p='id')=>`${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,8)}`;
+    const num=(v,d=0)=>{const n=Number(v); return Number.isFinite(n)?n:d;};
+    const fmt=v=>num(v).toLocaleString('pt-BR');
+    const fmt1=v=>num(v).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+    const money=v=>'R$ '+Math.round(num(v)).toLocaleString('pt-BR');
+    const isoDate=(dt=new Date())=>new Date(dt.getTime()-dt.getTimezoneOffset()*60000).toISOString().slice(0,10);
+    const monthKey=s=>String(s||isoDate()).slice(0,7);
+    const deepClone=o=>JSON.parse(JSON.stringify(o));
+    const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    const inAllowedDomain=email=>{
+      if(!email) return false;
+      const norm=String(email).trim().toLowerCase();
+      if(ALLOWED_ADMIN_EMAILS.includes(norm)) return true;
+      const d=norm.split('@')[1]||'';
+      return ALLOWED_DOMAINS.length===0 || ALLOWED_DOMAINS.includes(d);
+    };
+    const accessPolicyText=()=>{
+      const parts=[];
+      if(ALLOWED_DOMAINS.length) parts.push(`domínio(s): ${ALLOWED_DOMAINS.join(', ')}`);
+      if(ALLOWED_ADMIN_EMAILS.length) parts.push(`admin(s): ${ALLOWED_ADMIN_EMAILS.join(', ')}`);
+      return parts.join(' | ') || 'acesso livre';
+    };
+
+    function defaults(){
+      return {
+        name:'',
+        cliente:'',
+        local:'',
+        createdAt:new Date().toISOString(),
+        createdBy:'',
+        dataInicio:isoDate(),
+        prazoContratual:180,
+        leadTime:15,
+        metragem:10000,
+        profMedia:150,
+        nPerf:3,
+        prodMdia:12,
+        diasMudanca:2,
+        valorContrato:0,
+        valorMetroContrato:0,
+        contingencia:10,
+        retencao:5,
+        turnoD:'07:00-17:00',
+        turnoN:'18:00-05:00',
+        pessoal:[
+          {id:uid('team'),nome:'Sondador',qtd:2,sal:3800,fixo:false,dobra:true,special:''},
+          {id:uid('team'),nome:'Ajudante',qtd:2,sal:2400,fixo:false,dobra:true,special:''},
+          {id:uid('team'),nome:'Supervisor',qtd:1,sal:7500,fixo:true,dobra:false,special:''}
+        ],
+        opexExtras:[
+          {id:uid('opx'),nome:'Comunicação',val:2500},
+          {id:uid('opx'),nome:'Transporte interno',val:3500},
+          {id:uid('opx'),nome:'Alimentação',val:0}
+        ],
+        capexUnico:[
+          {id:uid('cap'),nome:'Mobilização/desmobilização',vUnit:15000,qtd:3},
+          {id:uid('cap'),nome:'Ferramental crítico',vUnit:25000,qtd:3}
+        ],
+        riscos:[
+          {id:uid('risk'),titulo:'Cadastro mineradora',impactPlanning:true,impactDays:12,owner:'',status:'aberto'},
+          {id:uid('risk'),titulo:'Aquisição ferramental',impactPlanning:true,impactDays:10,owner:'',status:'aberto'}
+        ],
+        ssma:{diasSemAcidente:0,acidentes:0,quaseAcidentes:0,horasExposicao:0,dpt:0},
+        ssmaEvents:[],
+        paradas:[],
+        bdpRates:[
+          {id:uid('rate'),diametro:'HW',precoMetro:0,ativo:true},
+          {id:uid('rate'),diametro:'HQ',precoMetro:0,ativo:true},
+          {id:uid('rate'),diametro:'NTW',precoMetro:0,ativo:true},
+          {id:uid('rate'),diametro:'BQ',precoMetro:0,ativo:true}
+        ],
+        bdps:[],
+        medicoes:[],
+        dailySnapshots:[],
+        purchaseOrders:[],
+        maintenanceAssets:[
+          {id:uid('asset'),name:'Perfuratriz 01',category:'Perfuratriz',active:true}
+        ],
+        maintenanceRecords:[],
+        maintenanceTasks:[],
+        members:[],
+        audit:[]
+      };
+    }
+
+    const STATE=defaults();
+    const CALC={};
+    let allProjects=[];
+    let projectSearchTerm='';
+    let activeTab='dash';
+    let appBuilt=false;
+    let currentProjectId=null;
+    let currentUser=null;
+    let pendingRemoteProject=null;
+    let lastSavedFingerprint='';
+    let lastAuditSnapshot=null;
+    let saveTimer=null;
+    let unsubProject=null;
+    let unsubPresence=null;
+    let presenceBeat=null;
+    let presenceUsers=[];
+    let lastInteraction=0;
+
+    let fbApp=null, auth=null, db=null;
+    try{
+      fbApp=firebase.initializeApp(FB_CONFIG);
+      auth=firebase.auth();
+      db=firebase.firestore();
+      db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+    }catch(e){
+      console.warn('Firebase indisponível: modo local',e);
+    }
+
+    function ensureArrayIds(arr,prefix){
+      return (Array.isArray(arr)?arr:[]).map(item=>({...(item||{}),id:item?.id||uid(prefix)}));
+    }
+
+    function normalize(raw={}){
+      const base=defaults();
+      const d={...base,...deepClone(raw||{})};
+      d.pessoal=ensureArrayIds(d.pessoal,'team');
+      d.opexExtras=ensureArrayIds(d.opexExtras,'opx');
+      d.capexUnico=ensureArrayIds(d.capexUnico,'cap');
+      d.riscos=ensureArrayIds(d.riscos,'risk');
+      d.ssmaEvents=ensureArrayIds(d.ssmaEvents,'sev');
+      d.paradas=ensureArrayIds(d.paradas,'stop');
+      d.bdpRates=ensureArrayIds(d.bdpRates,'rate');
+      d.bdps=ensureArrayIds(d.bdps,'bdp');
+      d.medicoes=ensureArrayIds(d.medicoes,'med');
+      d.dailySnapshots=ensureArrayIds(d.dailySnapshots,'snap');
+      d.purchaseOrders=ensureArrayIds(d.purchaseOrders,'po');
+      d.maintenanceAssets=ensureArrayIds(d.maintenanceAssets,'asset');
+      d.maintenanceRecords=ensureArrayIds(d.maintenanceRecords,'mrec');
+      d.maintenanceTasks=ensureArrayIds(d.maintenanceTasks,'mtask');
+      d.members=[...new Set((Array.isArray(d.members)?d.members:[]).filter(Boolean))];
+      d.audit=Array.isArray(d.audit)?d.audit:[];
+      if(currentUser?.email && !d.members.includes(currentUser.email) && d.createdBy===currentUser.email) d.members.push(currentUser.email);
+      if(currentUser?.uid && !d.members.includes(currentUser.uid) && d.createdBy===currentUser.uid) d.members.push(currentUser.uid);
+      return d;
+    }
+
+    function persistable(){
+      return deepClone(STATE);
+    }
+
+    function fingerprint(data=STATE){
+      const c=deepClone(data);
+      delete c.audit;
+      return JSON.stringify(c);
+    }
+
+    function applyProjectData(raw){
+      const n=normalize(raw);
+      Object.keys(STATE).forEach(k=>delete STATE[k]);
+      Object.assign(STATE,n);
+      lastAuditSnapshot=persistable();
+      recalc('remote');
+      renderActiveTab();
+    }
+
+    function parseHourRange(txt){
+      const m=String(txt||'').replace(/[–—]/g,'-').replace(/\s+/g,'').match(/^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/);
+      if(!m) return 0;
+      let s=(+m[1])*60+(+m[2]);
+      let e=(+m[3])*60+(+m[4]);
+      if(e<=s) e+=24*60;
+      return (e-s)/60;
+    }
+
+    function getShiftHoursPerDay(){
+      const h=parseHourRange(STATE.turnoD)+parseHourRange(STATE.turnoN);
+      return h>0?h:20;
+    }
+
+    function getContractValue(){
+      return num(STATE.valorContrato,0) || num(STATE.valorMetroContrato,0)*num(STATE.metragem,0);
+    }
+
+    function getDaysElapsed(refDate=isoDate()){
+      const start=new Date((STATE.dataInicio||isoDate())+'T00:00:00');
+      const end=new Date((refDate||isoDate())+'T00:00:00');
+      return Math.max(1,Math.floor((end-start)/86400000)+1);
+    }
+
+    function getPlannedMetersByDate(dateStr=isoDate()){
+      const daily=CALC.totalPlanDays>0?num(STATE.metragem,0)/CALC.totalPlanDays:0;
+      return Math.min(num(STATE.metragem,0), daily*getDaysElapsed(dateStr));
+    }
+
+    function getActualMetersByDate(dateStr=isoDate()){
+      return STATE.bdps.filter(b=>(b.data||'')<=dateStr).reduce((a,b)=>a+num(b.metrosPerf,0),0);
+    }
+
+    function getActualCostByDate(dateStr=isoDate()){
+      const elapsed=getDaysElapsed(dateStr);
+      const opex=(CALC.opexMonth/30)*elapsed;
+      const capex=Math.min(1,elapsed/15)*CALC.capexTotal;
+      const po=STATE.purchaseOrders.filter(po=>po.status==='aprovada' && (po.month||'')<=monthKey(dateStr)).reduce((a,po)=>a+num(po.amount,0),0);
+      const maint=STATE.maintenanceRecords.filter(r=>(r.data||'')<=dateStr).reduce((a,r)=>a+num(r.cost,0),0);
+      return opex+capex+po+maint;
+    }
+
+    function recalc(source='local'){
+      if(source==='local') lastInteraction=Date.now();
+      STATE.metragem=Math.max(100,num(STATE.metragem,10000));
+      STATE.profMedia=Math.max(10,num(STATE.profMedia,150));
+      STATE.nPerf=Math.max(1,num(STATE.nPerf,3));
+      STATE.prodMdia=Math.max(0.5,num(STATE.prodMdia,12));
+      STATE.diasMudanca=Math.max(0,num(STATE.diasMudanca,2));
+      STATE.leadTime=Math.max(0,num(STATE.leadTime,15));
+      STATE.prazoContratual=Math.max(1,num(STATE.prazoContratual,180));
+      STATE.contingencia=Math.max(0,num(STATE.contingencia,10));
+
+      CALC.contractValue=getContractValue();
+      CALC.contractPerMeter=CALC.contractValue/Math.max(1,num(STATE.metragem));
+
+      CALC.numFuros=Math.ceil(num(STATE.metragem)/Math.max(1,num(STATE.profMedia)));
+      CALC.prodTotalDia=num(STATE.nPerf)*num(STATE.prodMdia);
+      CALC.basePerfDays=Math.ceil(num(STATE.metragem)/Math.max(1,CALC.prodTotalDia));
+      CALC.totalMudancas=Math.max(CALC.numFuros-num(STATE.nPerf),0);
+      CALC.baseMoveDays=Math.ceil(CALC.totalMudancas/Math.max(1,num(STATE.nPerf)))*num(STATE.diasMudanca);
+      CALC.riskImpactDays=STATE.riscos.filter(r=>r.impactPlanning).reduce((a,r)=>a+num(r.impactDays,0),0);
+      CALC.ssmaImpactDays=STATE.ssmaEvents.filter(e=>e.impactPlanning).reduce((a,e)=>a+num(e.impactDays,0),0);
+      CALC.totalPlanDays=Math.max(1,num(STATE.leadTime)+CALC.basePerfDays+CALC.baseMoveDays+CALC.riskImpactDays+CALC.ssmaImpactDays+15);
+      CALC.totalPlanMonths=CALC.totalPlanDays/30;
+
+      const encargosPct=57.24/100;
+      let basePeople=0, baseSalary=0;
+      STATE.pessoal.forEach(p=>{
+        let qty=p.fixo?num(p.qtd,0):num(p.qtd,0)*num(STATE.nPerf,1);
+        if(p.special==='1 a cada 2 sondas') qty=Math.ceil(num(STATE.nPerf)/2);
+        if(p.special==='1 a cada 3 perf') qty=Math.ceil(num(STATE.nPerf)/3);
+        if(p.dobra) qty*=2;
+        basePeople+=qty;
+        baseSalary+=qty*num(p.sal,0);
+      });
+      CALC.basePeople=basePeople;
+      CALC.totalPeople=Math.ceil(basePeople);
+      if(STATE.opexExtras[2]) STATE.opexExtras[2].val=Math.round(CALC.basePeople*45*30);
+      CALC.salaryMonth=baseSalary;
+      CALC.salaryCharges=CALC.salaryMonth*encargosPct;
+      CALC.totalPayroll=CALC.salaryMonth+CALC.salaryCharges;
+      CALC.opexExtrasMonth=STATE.opexExtras.reduce((a,o)=>a+num(o.val,0),0);
+      CALC.opexMonth=CALC.totalPayroll+CALC.opexExtrasMonth;
+      CALC.capexTotal=STATE.capexUnico.reduce((a,c)=>a+(num(c.vUnit,0)*num(c.qtd,0)),0);
+      CALC.opexTotal=CALC.opexMonth*CALC.totalPlanMonths;
+      CALC.subtotal=CALC.opexTotal+CALC.capexTotal;
+      CALC.contingency=CALC.subtotal*(num(STATE.contingencia,0)/100);
+      CALC.totalCost=CALC.subtotal+CALC.contingency;
+      CALC.costPerMeter=CALC.totalCost/Math.max(1,num(STATE.metragem,1));
+      CALC.profit=CALC.contractValue-CALC.totalCost;
+      CALC.margin=CALC.contractValue>0?(CALC.profit/CALC.contractValue)*100:0;
+
+      const rateMap={};
+      STATE.bdpRates.forEach(r=>{ rateMap[String(r.diametro||'').toUpperCase()]=num(r.precoMetro,0); });
+      STATE.bdps.forEach(r=>{
+        r.profIni=num(r.profIni,0);
+        r.profFim=num(r.profFim,0);
+        r.diametro=String(r.diametro||'HQ').toUpperCase();
+        r.metrosPerf=Math.max(0,r.profFim-r.profIni);
+        if(!num(r.precoUnit,0) && rateMap[r.diametro]) r.precoUnit=rateMap[r.diametro];
+        r.valorPerf=r.metrosPerf*num(r.precoUnit,0);
+      });
+      CALC.bdpMeters=STATE.bdps.reduce((a,r)=>a+num(r.metrosPerf,0),0);
+      CALC.bdpValue=STATE.bdps.reduce((a,r)=>a+num(r.valorPerf,0),0);
+      CALC.bdpDays=new Set(STATE.bdps.map(r=>r.data).filter(Boolean)).size;
+      CALC.realProd=CALC.bdpDays>0?CALC.bdpMeters/CALC.bdpDays:0;
+      CALC.prodGapPct=CALC.prodTotalDia>0?((CALC.realProd-CALC.prodTotalDia)/CALC.prodTotalDia)*100:0;
+      CALC.physicalProgress=Math.min(100,(CALC.bdpMeters/Math.max(1,num(STATE.metragem)))*100);
+
+      CALC.totalMeasured=STATE.medicoes.reduce((a,m)=>a+num(m.metros,0),0);
+      CALC.totalBilled=STATE.medicoes.reduce((a,m)=>a+num(m.valor,0),0);
+      CALC.totalReceived=STATE.medicoes.reduce((a,m)=>a+num(m.recebido,0),0);
+      CALC.financialProgress=CALC.contractValue>0?(CALC.totalBilled/CALC.contractValue)*100:0;
+      CALC.measurementCoverage=CALC.bdpMeters>0?(CALC.totalMeasured/CALC.bdpMeters)*100:0;
+
+      // Correção de fórmula: custo real deixa de usar "C.total" linear
+      const start=new Date((STATE.dataInicio||isoDate())+'T00:00:00');
+      const now=new Date(isoDate()+'T00:00:00');
+      const elapsed=Math.max(1,Math.floor((now-start)/86400000)+1);
+      CALC.elapsedDays=elapsed;
+      const opexRunRate=CALC.opexMonth/30;
+      const opexReal=opexRunRate*elapsed;
+      const capexRelease=Math.min(1,elapsed/15)*CALC.capexTotal; // mobilização majoritariamente no início
+      CALC.poApproved=STATE.purchaseOrders.filter(po=>po.status==='aprovada').reduce((a,po)=>a+num(po.amount,0),0);
+      CALC.maintenanceCost=STATE.maintenanceRecords.reduce((a,r)=>a+num(r.cost,0),0);
+      CALC.actualCost=opexReal+capexRelease+CALC.poApproved+CALC.maintenanceCost;
+
+      CALC.horasParadas=STATE.paradas.reduce((a,p)=>a+num(p.horas,0),0);
+      const baseHours=Math.max(1,CALC.bdpDays)*getShiftHoursPerDay();
+      CALC.availability=Math.max(0,Math.min(100,((baseHours-CALC.horasParadas)/baseHours)*100));
+      const hExp=Math.max(1,num(STATE.ssma.horasExposicao,0));
+      CALC.freq=(num(STATE.ssma.acidentes,0)*1000000)/hExp;
+      CALC.severity=(num(STATE.ssma.dpt,0)*1000000)/hExp;
+
+      CALC.openMaint=STATE.maintenanceRecords.filter(r=>r.status!=='resolvido').length;
+      CALC.pendingTasks=STATE.maintenanceTasks.filter(t=>t.status!=='concluida').length;
+      CALC.pendingPO=STATE.purchaseOrders.filter(po=>po.status==='aguardando').reduce((a,po)=>a+num(po.amount,0),0);
+      CALC.openRisks=STATE.riscos.filter(r=>r.status!=='resolvido').length;
+      CALC.riskItems=STATE.riscos.filter(r=>r.impactPlanning).length;
+      CALC.ssmaImpactItems=STATE.ssmaEvents.filter(e=>e.impactPlanning).length;
+      CALC.poTotals={aguardando:0,aprovada:0,reprovada:0};
+      STATE.purchaseOrders.forEach(po=>{
+        const st=PO_STATUS.includes(po.status)?po.status:'aguardando';
+        CALC.poTotals[st]+=num(po.amount,0);
+      });
+
+      const tl=[];
+      const pushTL=(label,days,type='info')=>{ if(num(days,0)>0) tl.push({label,days:num(days,0),type}); };
+      pushTL('Mobilização base',STATE.leadTime,'warn');
+      STATE.riscos.filter(r=>r.impactPlanning).forEach(r=>pushTL(`Risco: ${r.titulo||'risco'}`,num(r.impactDays,0),'bad'));
+      STATE.ssmaEvents.filter(e=>e.impactPlanning).forEach(e=>pushTL(`SSMA: ${e.titulo||'evento'}`,num(e.impactDays,0),'info'));
+      pushTL('Perfuração base',CALC.basePerfDays,'ok');
+      pushTL('Mudanças de sonda',CALC.baseMoveDays,'info');
+      pushTL('Desmobilização',15,'bad');
+      let cursor=0;
+      CALC.timeline=tl.map(it=>{ const start=cursor; cursor+=it.days; return {...it,start,end:cursor}; });
+
+      CALC.quality=findDataQualityIssues();
+      CALC.alerts=buildAlerts();
+
+      renderTopKpis();
+      if(source==='local' && typeof autoSave==='function' && currentProjectId) autoSave();
+    }
+
+    function buildAlerts(){
+      const list=[];
+      if(CALC.totalPlanDays>num(STATE.prazoContratual,0)){
+        list.push({level:'bad',title:'Prazo comprometido',detail:`Plano ${CALC.totalPlanDays}d > contrato ${STATE.prazoContratual}d.`});
+      }
+      if(CALC.margin<0){
+        list.push({level:'bad',title:'Margem negativa',detail:`Margem em ${fmt1(CALC.margin)}%.`});
+      }else if(CALC.margin<10 && CALC.contractValue>0){
+        list.push({level:'warn',title:'Margem comprimida',detail:`Margem abaixo de 10% (${fmt1(CALC.margin)}%).`});
+      }
+      if(CALC.prodGapPct<-10){
+        list.push({level:'warn',title:'Produtividade baixa',detail:`Desvio ${fmt1(CALC.prodGapPct)}% vs plano.`});
+      }
+      if(CALC.availability<85){
+        list.push({level:'warn',title:'Disponibilidade baixa',detail:`Disponibilidade ${fmt1(CALC.availability)}%.`});
+      }
+      if(CALC.pendingPO>0){
+        list.push({level:'info',title:'POs aguardando aprovação',detail:`Total pendente ${money(CALC.pendingPO)}.`});
+      }
+      if(CALC.quality.length){
+        list.push({level:'warn',title:'Qualidade de dados',detail:`${CALC.quality.length} inconsistência(s) encontrada(s).`});
+      }
+      return list;
+    }
+
+    function findDataQualityIssues(){
+      const issues=[];
+      if(!STATE.name.trim()) issues.push('Nome do projeto não preenchido.');
+      if(!STATE.cliente.trim()) issues.push('Cliente não preenchido.');
+      if(!STATE.local.trim()) issues.push('Local não preenchido.');
+      if(!STATE.dataInicio) issues.push('Data de início não preenchida.');
+      STATE.bdps.forEach((r,i)=>{
+        if(num(r.profFim,0)<num(r.profIni,0)) issues.push(`BDP linha ${i+1}: profundidade final menor que inicial.`);
+        if(!r.data) issues.push(`BDP linha ${i+1}: data não preenchida.`);
+      });
+      STATE.purchaseOrders.forEach((po,i)=>{
+        if(!po.name) issues.push(`PO linha ${i+1}: nome não preenchido.`);
+        if(!po.month) issues.push(`PO ${po.name||'#'+(i+1)} sem mês.`);
+        if(!PO_STATUS.includes(po.status)) issues.push(`PO ${po.name||'#'+(i+1)} com status inválido.`);
+      });
+      if(CALC.totalMeasured>num(STATE.metragem,0)*1.1) issues.push('Medição muito acima da metragem contratada (mais de 10%).');
+      return issues.slice(0,25);
+    }
+
+    function captureSnapshot(force=true){
+      const dt=isoDate();
+      const exists=STATE.dailySnapshots.some(s=>s.date===dt);
+      if(exists && !force) return;
+      if(exists && force){
+        STATE.dailySnapshots=STATE.dailySnapshots.filter(s=>s.date!==dt);
+      }
+      STATE.dailySnapshots.unshift({
+        id:uid('snap'),
+        date:dt,
+        capturedAt:new Date().toISOString(),
+        plannedMeters:getPlannedMetersByDate(dt),
+        actualMeters:getActualMetersByDate(dt),
+        plannedCost:(CALC.totalCost/Math.max(1,CALC.totalPlanDays))*getDaysElapsed(dt),
+        actualCost:getActualCostByDate(dt)
+      });
+      if(STATE.dailySnapshots.length>180) STATE.dailySnapshots.length=180;
+      recalc();
+      if(activeTab==='track') renderTrack();
+    }
+
+    function getHealth(projectLike=STATE){
+      const margin=num(projectLike._margin, CALC.margin);
+      const days=num(projectLike._days, CALC.totalPlanDays);
+      const deadline=num(projectLike.prazoContratual,180);
+      if(margin<0 || days>deadline*1.15) return {label:'Crítico',cls:'bad'};
+      if(margin<10 || days>deadline) return {label:'Atenção',cls:'warn'};
+      return {label:'Saudável',cls:'ok'};
+    }
+
+    function showScreen(screen){
+      $('authScreen').style.display=screen==='auth'?'grid':'none';
+      $('projectScreen').style.display=screen==='projects'?'block':'none';
+      $('biWrap').style.display=screen==='bi'?'block':'none';
+    }
+
+    function renderTopKpis(){
+      $('kProject').textContent=STATE.name||'—';
+      const health=getHealth();
+      $('kHealth').textContent=health.label;
+      $('kHealth').style.color=health.cls==='ok'?'var(--ok)':health.cls==='warn'?'var(--warn)':'var(--bad)';
+      $('kDeadline').textContent=`${CALC.totalPlanDays}d`;
+      $('kMargin').textContent=CALC.contractValue>0?`${fmt1(CALC.margin)}%`:'—';
+    }
+
+    function switchTab(tab){
+      activeTab=tab;
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+      document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.id===`tab-${tab}`));
+      renderActiveTab();
+    }
+
+    function renderActiveTab(){
+      if(!appBuilt) return;
+      const fn=tabRenders[activeTab];
+      if(fn) fn();
+    }
+
+    const tabRenders={};
+
+    function buildAppSkeleton(){
+      const tabs=[
+        ['config','⚙ Configuração'],
+        ['team','👥 Equipe'],
+        ['dash','📊 Dashboard'],
+        ['fin','💰 Financeiro'],
+        ['risk','⚠ Riscos'],
+        ['crono','📅 Cronograma'],
+        ['bdpref','🧮 Referências BDP'],
+        ['bdp','📝 BDP'],
+        ['med','📋 Medição'],
+        ['ssma','🛡 SSMA'],
+        ['track','📈 Acompanhamento'],
+        ['insu','📦 Insumos/PO'],
+        ['manu','🛠 Manutenção'],
+        ['audit','🕵 Auditoria']
+      ];
+      $('tabsBar').innerHTML=tabs.map(([id,label])=>`<button class="tab-btn ${id===activeTab?'active':''}" data-tab="${id}">${label}</button>`).join('');
+
+      $('app').innerHTML=`
+        <section class="tab ${activeTab==='config'?'active':''}" id="tab-config">
+          <div class="section-title">⚙ Configuração</div>
+          <div class="section-sub">Parâmetros-base do projeto, contrato, produtividade e time.</div>
+          <div class="grid-2">
+            <div class="card">
+              <div class="k">Dados do projeto</div>
+              <div class="grid-2">
+                <div><label class="tiny muted">Nome</label><input class="input" id="cfgName"></div>
+                <div><label class="tiny muted">Cliente</label><input class="input" id="cfgClient"></div>
+                <div><label class="tiny muted">Local</label><input class="input" id="cfgLoc"></div>
+                <div><label class="tiny muted">Data início</label><input type="date" class="input" id="cfgStart"></div>
+                <div><label class="tiny muted">Lead time (d)</label><input type="number" class="input" id="cfgLead"></div>
+                <div><label class="tiny muted">Prazo contratual (d)</label><input type="number" class="input" id="cfgDeadline"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="k">Campanha e contrato</div>
+              <div class="grid-2">
+                <div><label class="tiny muted">Metragem (m)</label><input type="number" class="input" id="cfgMeters"></div>
+                <div><label class="tiny muted">Prof. média (m)</label><input type="number" class="input" id="cfgAvgDepth"></div>
+                <div><label class="tiny muted">Perfuratrizes</label><input type="number" class="input" id="cfgRigs"></div>
+                <div><label class="tiny muted">Produtividade (m/d por frente)</label><input type="number" class="input" id="cfgProd"></div>
+                <div><label class="tiny muted">Mudança de sonda (d)</label><input type="number" class="input" id="cfgMoveDays"></div>
+                <div><label class="tiny muted">Valor contrato (R$)</label><input type="number" class="input" id="cfgContract"></div>
+                <div><label class="tiny muted">Valor por metro (R$)</label><input type="number" class="input" id="cfgContractMeter"></div>
+                <div><label class="tiny muted">Contingência (%)</label><input type="number" class="input" id="cfgCont"></div>
+              </div>
+              <div class="alert info" style="margin-top:10px">
+                Integração automática: cronograma, custos, BDP, medição e alertas são recalculados em cascata a cada mudança.
+              </div>
+            </div>
+          </div>
+          <div class="grid-2" style="margin-top:12px">
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+                <div class="k">Equipe operacional</div>
+                <button class="btn btn-sec" id="btnAddRole">+ Função</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Função</th><th>Qtd</th><th>Salário</th><th>Fixo</th><th>Dobra</th><th>Regra</th><th></th></tr></thead>
+                  <tbody id="tbRoles"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card">
+              <div class="k">KPIs de configuração</div>
+              <div class="grid-2">
+                <div><div class="kpi-mini">Prazo integrado: <strong id="cfgKpiDays">0d</strong></div></div>
+                <div><div class="kpi-mini">Produção planejada: <strong id="cfgKpiProd">0 m/d</strong></div></div>
+                <div><div class="kpi-mini">Folha + encargos: <strong id="cfgKpiPayroll">R$ 0</strong></div></div>
+                <div><div class="kpi-mini">Custo estimado total: <strong id="cfgKpiTotalCost">R$ 0</strong></div></div>
+              </div>
+              <div class="alert warn" style="margin-top:10px">
+                Objetivo ISO 9001: manter campos obrigatórios, rastreabilidade de alterações e consistência entre físico/financeiro.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='team'?'active':''}" id="tab-team">
+          <div class="section-title">👥 Equipe e colaboração</div>
+          <div class="section-sub">Capacidade operacional, acesso de membros e presença online no projeto.</div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Equipe base</div><div class="v" id="tBasePeople">0</div></div>
+            <div class="card"><div class="k">Equipe total</div><div class="v" id="tTotalPeople">0</div></div>
+            <div class="card"><div class="k">Folha + encargos</div><div class="v" id="tPayroll">R$ 0</div></div>
+            <div class="card"><div class="k">Membros / online</div><div class="v" id="tMembersOnline">0 / 0</div></div>
+          </div>
+          <div class="grid-2" style="margin-top:12px">
+            <div class="card">
+              <div class="k">Membros autorizados</div>
+              <div class="kpi-mini" style="margin-bottom:8px">Gerencie no botão <strong>Membros</strong> na barra superior.</div>
+              <div id="teamMembersList"></div>
+            </div>
+            <div class="card">
+              <div class="k">Usuários online</div>
+              <div id="teamOnlineList"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='dash'?'active':''}" id="tab-dash">
+          <div class="section-title">📊 Dashboard executivo</div>
+          <div class="section-sub">Leitura integrada: cronograma, custo real estimado, produção e qualidade de dados.</div>
+          <div class="grid-6">
+            <div class="card"><div class="k">Contrato</div><div class="v" id="dContract">R$ 0</div></div>
+            <div class="card"><div class="k">Custo estimado</div><div class="v" id="dTotalCost">R$ 0</div></div>
+            <div class="card"><div class="k">Margem</div><div class="v" id="dMargin">0%</div></div>
+            <div class="card"><div class="k">Prazo integrado</div><div class="v" id="dDays">0d</div></div>
+            <div class="card"><div class="k">Produtividade real</div><div class="v" id="dProdReal">0 m/d</div></div>
+            <div class="card"><div class="k">Disponibilidade</div><div class="v" id="dAvail">0%</div></div>
+          </div>
+
+          <div class="grid-3" style="margin-top:12px">
+            <div class="card">
+              <div class="k">Avanço físico x financeiro</div>
+              <div class="kpi-mini">Físico (BDP): <strong id="dPhys">0%</strong></div>
+              <div class="progress"><div id="barPhys" style="width:0%"></div></div>
+              <div class="kpi-mini" style="margin-top:8px">Financeiro (faturado): <strong id="dFin">0%</strong></div>
+              <div class="progress"><div id="barFin" style="width:0%;background:linear-gradient(90deg,#f59e0b,#f97316)"></div></div>
+            </div>
+            <div class="card">
+              <div class="k">Cobertura de medição vs BDP</div>
+              <div class="v" id="dCoverage">0%</div>
+              <div class="kpi-mini">Medição acumulada / BDP acumulado</div>
+            </div>
+            <div class="card">
+              <div class="k">Custo real estimado</div>
+              <div class="v" id="dActualCost">R$ 0</div>
+              <div class="kpi-mini">Run-rate OPEX + CAPEX liberado + POs aprovadas + manutenção</div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <div class="k">Alertas executivos</div>
+            <div id="dashAlerts"></div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div class="k">Checklist de qualidade de dados (pré-auditoria)</div>
+            <div id="dashQuality"></div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='fin'?'active':''}" id="tab-fin">
+          <div class="section-title">💰 Financeiro</div>
+          <div class="section-sub">Composição de custo, contrato e posição de margem com atualização automática.</div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Contrato</div><div class="v" id="fContract">R$ 0</div><div class="kpi-mini">R$/m <strong id="fContractMeter">—</strong></div></div>
+            <div class="card"><div class="k">Custo estimado</div><div class="v" id="fTotal">R$ 0</div><div class="kpi-mini">R$/m <strong id="fCostMeter">—</strong></div></div>
+            <div class="card"><div class="k">Margem</div><div class="v" id="fMargin">0%</div><div class="kpi-mini">Lucro <strong id="fProfit">R$ 0</strong></div></div>
+            <div class="card"><div class="k">Contingência</div><div class="v" id="fCont">R$ 0</div><div class="kpi-mini">Sobre subtotal</div></div>
+          </div>
+          <div class="grid-2" style="margin-top:12px">
+            <div class="card"><div class="k">Estrutura de custos</div><div id="finCostRows"></div></div>
+            <div class="card"><div class="k">Execução financeira</div><div id="finExecRows"></div></div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='risk'?'active':''}" id="tab-risk">
+          <div class="section-title">⚠ Riscos</div>
+          <div class="section-sub">Riscos com impacto no cronograma, responsáveis e status de tratamento.</div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Impacto total</div><div class="v" id="rImpactDays">0d</div></div>
+            <div class="card"><div class="k">Itens com impacto</div><div class="v" id="rImpactItems">0</div></div>
+            <div class="card"><div class="k">Riscos abertos</div><div class="v" id="rOpen">0</div></div>
+            <div class="card"><div class="k">Impactos SSMA</div><div class="v" id="rSSMAItems">0</div></div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+              <div class="k">Matriz de riscos</div>
+              <button class="btn btn-primary" id="btnAddRisk">+ Risco</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Risco</th><th>Impacta plano?</th><th>Dias</th><th>Responsável</th><th>Status</th><th></th></tr></thead><tbody id="tbRisk"></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='crono'?'active':''}" id="tab-crono">
+          <div class="section-title">📅 Cronograma integrado</div>
+          <div class="section-sub">Linha do tempo consolidada por configuração, riscos e eventos SSMA.</div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Prazo integrado</div><div class="v" id="cPlanDays">0d</div></div>
+            <div class="card"><div class="k">Prazo contratual</div><div class="v" id="cDeadline">0d</div></div>
+            <div class="card"><div class="k">Folga / atraso</div><div class="v" id="cSlack">0d</div></div>
+            <div class="card"><div class="k">Meses estimados</div><div class="v" id="cMonths">0</div></div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div class="k">Linha do tempo</div>
+            <div id="cronoTimelineRows"></div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='bdpref'?'active':''}" id="tab-bdpref">
+          <div class="section-title">🧮 Referências BDP</div>
+          <div class="section-sub">Tabela mestre de preço por diâmetro com aplicação automática nos lançamentos.</div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+              <div class="k">Preço por metro / diâmetro</div>
+              <button class="btn btn-sec" id="btnAddRateRef">+ Diâmetro</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Diâmetro</th><th>R$/m</th><th>Ativo</th><th></th></tr></thead><tbody id="tbRatesRef"></tbody></table></div>
+            <div class="alert info" style="margin-top:10px">Alterações aqui alimentam automaticamente os novos lançamentos no BDP.</div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='bdp'?'active':''}" id="tab-bdp">
+          <div class="section-title">📝 BDP</div>
+          <div class="section-sub">Perfuração diária com valorização automática por diâmetro.</div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Metros BDP</div><div class="v" id="bMeters">0m</div></div>
+            <div class="card"><div class="k">Valor BDP</div><div class="v" id="bValue">R$ 0</div></div>
+            <div class="card"><div class="k">Dias lançados</div><div class="v" id="bDays">0</div></div>
+            <div class="card"><div class="k">Gap produtividade</div><div class="v" id="bGap">0%</div></div>
+          </div>
+          <div class="grid-2" style="margin-top:12px">
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+                <div class="k">Preço de referência por diâmetro</div>
+                <button class="btn btn-sec" id="btnAddRate">+ Diâmetro</button>
+              </div>
+              <div class="table-wrap"><table><thead><tr><th>Diâmetro</th><th>R$/m</th><th>Ativo</th><th></th></tr></thead><tbody id="tbRates"></tbody></table></div>
+            </div>
+            <div class="card">
+              <div class="k">Inteligência de integração</div>
+              <div class="alert info">Quando uma linha BDP não tem preço unitário, o sistema puxa automaticamente a referência do diâmetro.</div>
+              <div class="alert info">Avanço físico no Dashboard é atualizado diretamente pelos metros do BDP.</div>
+              <div class="alert info">Cobertura de medição compara metrado em medição versus metrado lançado no BDP.</div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+              <div class="k">Lançamentos de perfuração</div>
+              <button class="btn btn-primary" id="btnAddBDP">+ Lançamento BDP</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Data</th><th>Furo</th><th>Prof. ini</th><th>Prof. fim</th><th>Metros</th><th>Diâmetro</th><th>R$/m</th><th>Valor</th><th></th></tr></thead><tbody id="tbBDP"></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='med'?'active':''}" id="tab-med">
+          <div class="section-title">📋 Medição</div>
+          <div class="section-sub">Medições faturadas/recebidas e coerência com avanço físico.</div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Total medido</div><div class="v" id="mMeasured">0m</div></div>
+            <div class="card"><div class="k">Faturado</div><div class="v" id="mBilled">R$ 0</div></div>
+            <div class="card"><div class="k">Recebido</div><div class="v" id="mReceived">R$ 0</div></div>
+            <div class="card"><div class="k">Saldo contratual</div><div class="v" id="mRemaining">R$ 0</div></div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+              <div class="k">Lançamentos de medição</div>
+              <button class="btn btn-primary" id="btnAddMed">+ Medição</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Metros</th><th>Valor</th><th>Status</th><th>Recebido</th><th></th></tr></thead><tbody id="tbMed"></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='ssma'?'active':''}" id="tab-ssma">
+          <div class="section-title">🛡 SSMA</div>
+          <div class="section-sub">Eventos com impacto no cronograma, paradas e indicadores de segurança.</div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Dias sem acidente</div><div class="v" id="sDaysNoAcc">0</div></div>
+            <div class="card"><div class="k">Taxa frequência</div><div class="v" id="sFreq">0</div></div>
+            <div class="card"><div class="k">Taxa gravidade</div><div class="v" id="sSev">0</div></div>
+            <div class="card"><div class="k">Horas parada</div><div class="v" id="sStopH">0h</div></div>
+          </div>
+          <div class="grid-2" style="margin-top:12px">
+            <div class="card">
+              <div class="k">Indicadores SSMA</div>
+              <div class="grid-2">
+                <div><label class="tiny muted">Dias sem acidente</label><input type="number" class="input" id="ssDays"></div>
+                <div><label class="tiny muted">Acidentes</label><input type="number" class="input" id="ssAcc"></div>
+                <div><label class="tiny muted">Quase acidentes</label><input type="number" class="input" id="ssNear"></div>
+                <div><label class="tiny muted">Horas exposição</label><input type="number" class="input" id="ssExp"></div>
+                <div><label class="tiny muted">Dias perdidos (DPT)</label><input type="number" class="input" id="ssDpt"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="k">Paradas operacionais</div>
+              <div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="btn btn-sec" id="btnAddStop">+ Parada</button></div>
+              <div class="table-wrap"><table><thead><tr><th>Data</th><th>Motivo</th><th>Horas</th><th>Tipo</th><th></th></tr></thead><tbody id="tbStops"></tbody></table></div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+              <div class="k">Eventos SSMA (impacto em prazo)</div>
+              <button class="btn btn-primary" id="btnAddSSMA">+ Evento</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Data</th><th>Evento</th><th>Impacta plano?</th><th>Dias</th><th>Responsável</th><th>Status</th><th></th></tr></thead><tbody id="tbSSMAEvents"></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='track'?'active':''}" id="tab-track">
+          <div class="section-title">📈 Acompanhamento</div>
+          <div class="section-sub">Fechamento diário de evolução física e custo estimado real acumulado.</div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px">
+            <button class="btn btn-sec" id="btnSnapshotToday">Registrar fechamento de hoje</button>
+          </div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Planejado hoje</div><div class="v" id="trPlanned">0m</div></div>
+            <div class="card"><div class="k">Realizado hoje</div><div class="v" id="trActual">0m</div></div>
+            <div class="card"><div class="k">Custo planejado</div><div class="v" id="trPlanCost">R$ 0</div></div>
+            <div class="card"><div class="k">Custo real estimado</div><div class="v" id="trActualCost">R$ 0</div></div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div class="k">Histórico diário</div>
+            <div class="table-wrap"><table><thead><tr><th>Data</th><th>Planejado (m)</th><th>Real (m)</th><th>Custo plan.</th><th>Custo real</th></tr></thead><tbody id="tbTrack"></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='insu'?'active':''}" id="tab-insu">
+          <div class="section-title">📦 Insumos / POs</div>
+          <div class="section-sub">Fluxo de aprovação com impacto financeiro integrado.</div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Aguardando</div><div class="v" id="iPending">R$ 0</div></div>
+            <div class="card"><div class="k">Aprovada</div><div class="v" id="iApproved">R$ 0</div></div>
+            <div class="card"><div class="k">Reprovada</div><div class="v" id="iRejected">R$ 0</div></div>
+            <div class="card"><div class="k">Total POs</div><div class="v" id="iTotal">R$ 0</div></div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+              <div class="k">Ordens de compra</div>
+              <button class="btn btn-primary" id="btnAddPO">+ Nova PO</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Código</th><th>Valor</th><th>Mês</th><th>Status</th><th>Observações</th><th>Criador</th><th></th></tr></thead><tbody id="tbPO"></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='manu'?'active':''}" id="tab-manu">
+          <div class="section-title">🛠 Manutenção</div>
+          <div class="section-sub">Ativos, ocorrências e pendências com rastreabilidade.</div>
+          <div class="grid-4">
+            <div class="card"><div class="k">Ocorrências abertas</div><div class="v" id="maOpen">0</div></div>
+            <div class="card"><div class="k">Custo manutenção</div><div class="v" id="maCost">R$ 0</div></div>
+            <div class="card"><div class="k">Pendências abertas</div><div class="v" id="maTasks">0</div></div>
+            <div class="card"><div class="k">Disponibilidade</div><div class="v" id="maAvail">0%</div></div>
+          </div>
+          <div class="grid-2" style="margin-top:12px">
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+                <div class="k">Ativos</div>
+                <button class="btn btn-sec" id="btnAddAsset">+ Ativo</button>
+              </div>
+              <div class="table-wrap"><table><thead><tr><th>Nome</th><th>Categoria</th><th>Ativo</th><th></th></tr></thead><tbody id="tbAssets"></tbody></table></div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+                <div class="k">Pendências</div>
+                <button class="btn btn-sec" id="btnAddTask">+ Pendência</button>
+              </div>
+              <div class="table-wrap"><table><thead><tr><th>Título</th><th>Prazo</th><th>Responsável</th><th>Status</th><th></th></tr></thead><tbody id="tbTasks"></tbody></table></div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+              <div class="k">Registros de manutenção</div>
+              <button class="btn btn-primary" id="btnAddMaint">+ Registro</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Data</th><th>Ativo</th><th>Comentário</th><th>Horas</th><th>Custo</th><th>Responsável</th><th>Status</th><th></th></tr></thead><tbody id="tbMaint"></tbody></table></div>
+          </div>
+        </section>
+
+        <section class="tab ${activeTab==='audit'?'active':''}" id="tab-audit">
+          <div class="section-title">🕵 Auditoria</div>
+          <div class="section-sub">Rastro de mudanças com usuário, horário e resumo da alteração.</div>
+          <div class="card">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+              <input class="input" id="auditSearch" style="max-width:300px" placeholder="Filtrar por usuário ou campo" />
+              <span class="tiny muted" id="auditCount">0 registro(s)</span>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Data/Hora</th><th>Usuário</th><th>Mudanças</th></tr></thead><tbody id="tbAudit"></tbody></table></div>
+          </div>
+        </section>
+      `;
+
+      $('tabsBar').querySelectorAll('.tab-btn').forEach(btn=>{
+        btn.addEventListener('click',()=>switchTab(btn.dataset.tab));
+      });
+
+      bindGlobalActions();
+      appBuilt=true;
+      renderActiveTab();
+    }
+
+    function bindGlobalActions(){
+      $('btnAddRole').onclick=()=>{ STATE.pessoal.push({id:uid('team'),nome:'Nova função',qtd:1,sal:0,fixo:true,dobra:false,special:''}); recalc(); renderConfig(); };
+      const addRateAction=()=>{ STATE.bdpRates.push({id:uid('rate'),diametro:'NOVO',precoMetro:0,ativo:true}); recalc(); if(activeTab==='bdpref') renderBDPRef(); else renderBDP(); };
+      if($('btnAddRate')) $('btnAddRate').onclick=addRateAction;
+      if($('btnAddRateRef')) $('btnAddRateRef').onclick=addRateAction;
+      $('btnAddBDP').onclick=()=>{ STATE.bdps.push({id:uid('bdp'),data:isoDate(),furo:`FURO-${STATE.bdps.length+1}`,profIni:0,profFim:0,diametro:'HQ',precoUnit:0,metrosPerf:0,valorPerf:0}); recalc(); renderBDP(); };
+      $('btnAddMed').onclick=()=>{ STATE.medicoes.push({id:uid('med'),data:isoDate(),descricao:`Medição #${STATE.medicoes.length+1}`,metros:0,valor:0,status:'pendente',recebido:0}); recalc(); renderMed(); };
+      $('btnAddSSMA').onclick=()=>{ STATE.ssmaEvents.push({id:uid('sev'),data:isoDate(),titulo:'Evento SSMA',impactPlanning:false,impactDays:0,responsible:'',status:'aberto'}); recalc(); renderSSMA(); };
+      $('btnAddStop').onclick=()=>{ STATE.paradas.push({id:uid('stop'),data:isoDate(),motivo:'',horas:0,tipo:'Mecânica'}); recalc(); renderSSMA(); };
+      $('btnAddPO').onclick=()=>addPO();
+      if($('btnAddRisk')) $('btnAddRisk').onclick=()=>{ STATE.riscos.push({id:uid('risk'),titulo:'Novo risco',impactPlanning:false,impactDays:0,owner:'',status:'aberto'}); recalc(); renderRisk(); };
+      if($('btnSnapshotToday')) $('btnSnapshotToday').onclick=()=>captureSnapshot(true);
+      $('btnAddAsset').onclick=()=>{ STATE.maintenanceAssets.push({id:uid('asset'),name:`Ativo ${STATE.maintenanceAssets.length+1}`,category:'Equipamento',active:true}); recalc(); renderManu(); };
+      $('btnAddTask').onclick=()=>{ STATE.maintenanceTasks.push({id:uid('mtask'),title:'Nova pendência',dueDate:isoDate(),responsible:'',status:'pendente'}); recalc(); renderManu(); };
+      $('btnAddMaint').onclick=()=>{ STATE.maintenanceRecords.push({id:uid('mrec'),data:isoDate(),assetId:'',assetName:'',comment:'',hoursDown:0,cost:0,responsible:'',status:'pendente'}); recalc(); renderManu(); };
+      $('auditSearch').oninput=renderAudit;
+    }
+
+    tabRenders.config=renderConfig;
+    tabRenders.team=renderTeam;
+    tabRenders.dash=renderDash;
+    tabRenders.fin=renderFin;
+    tabRenders.risk=renderRisk;
+    tabRenders.crono=renderCrono;
+    tabRenders.bdpref=renderBDPRef;
+    tabRenders.bdp=renderBDP;
+    tabRenders.med=renderMed;
+    tabRenders.ssma=renderSSMA;
+    tabRenders.track=renderTrack;
+    tabRenders.insu=renderInsu;
+    tabRenders.manu=renderManu;
+    tabRenders.audit=renderAudit;
+
+    function bindInput(id,getter,setter,formatter=v=>v){
+      const el=$(id); if(!el) return;
+      el.value=formatter(getter());
+      el.oninput=()=>{ setter(el.value); recalc(); if(activeTab==='config') renderConfig(); };
+    }
+
+    function renderConfig(){
+      bindInput('cfgName',()=>STATE.name,v=>STATE.name=v);
+      bindInput('cfgClient',()=>STATE.cliente,v=>STATE.cliente=v);
+      bindInput('cfgLoc',()=>STATE.local,v=>STATE.local=v);
+      bindInput('cfgStart',()=>STATE.dataInicio,v=>STATE.dataInicio=v||isoDate());
+      bindInput('cfgLead',()=>STATE.leadTime,v=>STATE.leadTime=+v);
+      bindInput('cfgDeadline',()=>STATE.prazoContratual,v=>STATE.prazoContratual=+v);
+      bindInput('cfgMeters',()=>STATE.metragem,v=>STATE.metragem=+v);
+      bindInput('cfgAvgDepth',()=>STATE.profMedia,v=>STATE.profMedia=+v);
+      bindInput('cfgRigs',()=>STATE.nPerf,v=>STATE.nPerf=+v);
+      bindInput('cfgProd',()=>STATE.prodMdia,v=>STATE.prodMdia=+v);
+      bindInput('cfgMoveDays',()=>STATE.diasMudanca,v=>STATE.diasMudanca=+v);
+      bindInput('cfgContract',()=>STATE.valorContrato,v=>STATE.valorContrato=+v);
+      bindInput('cfgContractMeter',()=>STATE.valorMetroContrato,v=>STATE.valorMetroContrato=+v);
+      bindInput('cfgCont',()=>STATE.contingencia,v=>STATE.contingencia=+v);
+
+      $('cfgKpiDays').textContent=`${CALC.totalPlanDays}d`;
+      $('cfgKpiProd').textContent=`${fmt1(CALC.prodTotalDia)} m/d`;
+      $('cfgKpiPayroll').textContent=money(CALC.totalPayroll);
+      $('cfgKpiTotalCost').textContent=money(CALC.totalCost);
+
+      $('tbRoles').innerHTML=STATE.pessoal.map((r,i)=>`
+        <tr>
+          <td><input class="cell-input" value="${esc(r.nome||'')}" data-k="nome" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono" value="${num(r.qtd,0)}" data-k="qtd" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono" value="${num(r.sal,0)}" data-k="sal" data-i="${i}"></td>
+          <td style="text-align:center"><input type="checkbox" ${r.fixo?'checked':''} data-k="fixo" data-i="${i}"></td>
+          <td style="text-align:center"><input type="checkbox" ${r.dobra?'checked':''} data-k="dobra" data-i="${i}"></td>
+          <td>
+            <select class="cell-input" data-k="special" data-i="${i}">
+              <option value="" ${!r.special?'selected':''}>normal</option>
+              <option value="1 a cada 2 sondas" ${r.special==='1 a cada 2 sondas'?'selected':''}>1 a cada 2 sondas</option>
+              <option value="1 a cada 3 perf" ${r.special==='1 a cada 3 perf'?'selected':''}>1 a cada 3 perf</option>
+            </select>
+          </td>
+          <td class="row-actions"><button class="btn btn-bad tiny" data-del-role="${i}" style="padding:4px 8px">Excluir</button></td>
+        </tr>
+      `).join('');
+
+      $('tbRoles').querySelectorAll('[data-k]').forEach(el=>{
+        el.oninput=el.onchange=()=>{
+          const i=+el.dataset.i, k=el.dataset.k;
+          if(k==='fixo' || k==='dobra') STATE.pessoal[i][k]=el.checked;
+          else if(k==='qtd' || k==='sal') STATE.pessoal[i][k]=+el.value;
+          else STATE.pessoal[i][k]=el.value;
+          recalc();
+          renderConfig();
+        };
+      });
+      $('tbRoles').querySelectorAll('[data-del-role]').forEach(btn=>{
+        btn.onclick=()=>{ STATE.pessoal.splice(+btn.dataset.delRole,1); recalc(); renderConfig(); };
+      });
+    }
+
+    function renderTeam(){
+      $('tBasePeople').textContent=fmt(CALC.basePeople||0);
+      $('tTotalPeople').textContent=fmt(CALC.totalPeople||0);
+      $('tPayroll').textContent=money(CALC.totalPayroll||0);
+      $('tMembersOnline').textContent=`${(STATE.members||[]).filter(Boolean).length} / ${presenceUsers.length}`;
+      const members=[...new Set((STATE.members||[]).filter(Boolean))];
+      $('teamMembersList').innerHTML=members.length
+        ? members.map(m=>`<div class="kpi-mini" style="margin-bottom:6px">• <strong>${esc(m)}</strong></div>`).join('')
+        : `<div class="tiny muted">Sem membros adicionais cadastrados.</div>`;
+      $('teamOnlineList').innerHTML=presenceUsers.length
+        ? presenceUsers.map(u=>`<div class="kpi-mini" style="margin-bottom:6px">🟢 <strong>${esc(u.name||u.email||'Usuário')}</strong> <span class="muted">(${esc(u.email||'sem e-mail')})</span></div>`).join('')
+        : `<div class="tiny muted">Nenhum usuário online no momento.</div>`;
+    }
+
+    function renderFin(){
+      $('fContract').textContent=CALC.contractValue?money(CALC.contractValue):'—';
+      $('fContractMeter').textContent=CALC.contractPerMeter?money(CALC.contractPerMeter):'—';
+      $('fTotal').textContent=money(CALC.totalCost);
+      $('fCostMeter').textContent=money(CALC.costPerMeter);
+      $('fMargin').textContent=CALC.contractValue?`${fmt1(CALC.margin)}%`:'—';
+      $('fMargin').style.color=CALC.margin>=0?'var(--ok)':'var(--bad)';
+      $('fProfit').textContent=money(CALC.profit);
+      $('fCont').textContent=money(CALC.contingency);
+      $('finCostRows').innerHTML=`
+        <div class="kpi-mini">Folha + encargos / mês <strong>${money(CALC.totalPayroll)}</strong></div>
+        <div class="kpi-mini">OPEX adicionais / mês <strong>${money(CALC.opexExtrasMonth)}</strong></div>
+        <div class="kpi-mini">OPEX total estimado <strong>${money(CALC.opexTotal)}</strong></div>
+        <div class="kpi-mini">CAPEX total <strong>${money(CALC.capexTotal)}</strong></div>
+        <div class="kpi-mini">Subtotal <strong>${money(CALC.subtotal)}</strong></div>
+      `;
+      $('finExecRows').innerHTML=`
+        <div class="kpi-mini">Faturado <strong>${money(CALC.totalBilled)}</strong></div>
+        <div class="kpi-mini">Recebido <strong>${money(CALC.totalReceived)}</strong></div>
+        <div class="kpi-mini">Saldo contratual <strong>${money(Math.max(0,CALC.contractValue-CALC.totalBilled))}</strong></div>
+        <div class="kpi-mini">Custo real estimado <strong>${money(CALC.actualCost)}</strong></div>
+      `;
+    }
+
+    function renderRisk(){
+      $('rImpactDays').textContent=`${fmt(CALC.riskImpactDays)}d`;
+      $('rImpactItems').textContent=fmt(CALC.riskItems||0);
+      $('rOpen').textContent=fmt(CALC.openRisks||0);
+      $('rSSMAItems').textContent=fmt(CALC.ssmaImpactItems||0);
+
+      $('tbRisk').innerHTML=STATE.riscos.map((r,i)=>`
+        <tr>
+          <td><input class="cell-input" value="${esc(r.titulo||'')}" data-risk-k="titulo" data-i="${i}"></td>
+          <td style="text-align:center"><input type="checkbox" ${r.impactPlanning?'checked':''} data-risk-k="impactPlanning" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono" value="${num(r.impactDays,0)}" data-risk-k="impactDays" data-i="${i}"></td>
+          <td><input class="cell-input cell-mid" value="${esc(r.owner||'')}" data-risk-k="owner" data-i="${i}"></td>
+          <td>
+            <select class="cell-input cell-mid" data-risk-k="status" data-i="${i}">
+              ${EVENT_STATUS.map(s=>`<option value="${s}" ${r.status===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td class="row-actions"><button class="btn btn-bad tiny" data-del-risk="${i}" style="padding:4px 8px">Excluir</button></td>
+        </tr>
+      `).join('');
+      $('tbRisk').querySelectorAll('[data-risk-k]').forEach(el=>{
+        el.oninput=el.onchange=()=>{
+          const i=+el.dataset.i,k=el.dataset.riskK;
+          if(k==='impactPlanning') STATE.riscos[i][k]=el.checked;
+          else if(k==='impactDays') STATE.riscos[i][k]=+el.value;
+          else STATE.riscos[i][k]=el.value;
+          recalc(); renderRisk();
+        };
+      });
+      $('tbRisk').querySelectorAll('[data-del-risk]').forEach(btn=>{
+        btn.onclick=()=>{ STATE.riscos.splice(+btn.dataset.delRisk,1); recalc(); renderRisk(); };
+      });
+    }
+
+    function renderCrono(){
+      $('cPlanDays').textContent=`${fmt(CALC.totalPlanDays)}d`;
+      $('cDeadline').textContent=`${fmt(STATE.prazoContratual)}d`;
+      const slack=num(STATE.prazoContratual)-num(CALC.totalPlanDays);
+      $('cSlack').textContent=`${fmt(slack)}d`;
+      $('cSlack').style.color=slack>=0?'var(--ok)':'var(--bad)';
+      $('cMonths').textContent=fmt1(CALC.totalPlanMonths||0);
+      const total=Math.max(1,(CALC.timeline||[]).reduce((a,t)=>a+num(t.days,0),0));
+      $('cronoTimelineRows').innerHTML=(CALC.timeline||[]).length
+        ? CALC.timeline.map(item=>`
+          <div class="kpi-mini" style="margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(item.label)}</span><strong>${fmt(item.days)}d</strong></div>
+            <div class="progress"><div style="width:${Math.max(3,(item.days/total)*100)}%;background:${item.type==='bad'?'linear-gradient(90deg,#ef4444,#b91c1c)':item.type==='warn'?'linear-gradient(90deg,#f59e0b,#f97316)':item.type==='ok'?'linear-gradient(90deg,#10b981,#06b6d4)':'linear-gradient(90deg,#60a5fa,#06b6d4)'}"></div></div>
+          </div>
+        `).join('')
+        : `<div class="tiny muted">Sem eventos de cronograma.</div>`;
+    }
+
+    function renderBDPRef(){
+      $('tbRatesRef').innerHTML=STATE.bdpRates.map((r,i)=>`
+        <tr>
+          <td><input class="cell-input cell-small mono" value="${esc(r.diametro||'')}" data-rate-ref-k="diametro" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono" value="${num(r.precoMetro,0)}" data-rate-ref-k="precoMetro" data-i="${i}"></td>
+          <td style="text-align:center"><input type="checkbox" ${r.ativo?'checked':''} data-rate-ref-k="ativo" data-i="${i}"></td>
+          <td class="row-actions"><button class="btn btn-bad tiny" data-del-rate-ref="${i}" style="padding:4px 8px">Excluir</button></td>
+        </tr>
+      `).join('');
+      $('tbRatesRef').querySelectorAll('[data-rate-ref-k]').forEach(el=>{
+        el.oninput=el.onchange=()=>{
+          const i=+el.dataset.i,k=el.dataset.rateRefK;
+          if(k==='ativo') STATE.bdpRates[i][k]=el.checked;
+          else if(k==='precoMetro') STATE.bdpRates[i][k]=+el.value;
+          else STATE.bdpRates[i][k]=String(el.value||'').toUpperCase();
+          recalc();
+          renderBDPRef();
+        };
+      });
+      $('tbRatesRef').querySelectorAll('[data-del-rate-ref]').forEach(btn=>{
+        btn.onclick=()=>{ STATE.bdpRates.splice(+btn.dataset.delRateRef,1); recalc(); renderBDPRef(); };
+      });
+    }
+
+    function renderDash(){
+      $('dContract').textContent=CALC.contractValue?money(CALC.contractValue):'—';
+      $('dTotalCost').textContent=money(CALC.totalCost);
+      $('dMargin').textContent=CALC.contractValue?`${fmt1(CALC.margin)}%`:'—';
+      $('dMargin').style.color=CALC.margin>=0?'var(--ok)':'var(--bad)';
+      $('dDays').textContent=`${CALC.totalPlanDays}d`;
+      $('dProdReal').textContent=`${fmt1(CALC.realProd)} m/d`;
+      $('dAvail').textContent=`${fmt1(CALC.availability)}%`;
+      $('dPhys').textContent=`${fmt1(CALC.physicalProgress)}%`;
+      $('dFin').textContent=`${fmt1(CALC.financialProgress)}%`;
+      $('barPhys').style.width=`${Math.min(100,Math.max(0,CALC.physicalProgress))}%`;
+      $('barFin').style.width=`${Math.min(100,Math.max(0,CALC.financialProgress))}%`;
+      $('dCoverage').textContent=`${fmt1(CALC.measurementCoverage)}%`;
+      $('dActualCost').textContent=money(CALC.actualCost);
+
+      $('dashAlerts').innerHTML=CALC.alerts.length
+        ? CALC.alerts.map(a=>`<div class="alert ${a.level}"><strong>${esc(a.title)}</strong><div>${esc(a.detail)}</div></div>`).join('')
+        : `<div class="alert ok"><strong>Sem gatilhos críticos.</strong><div>O projeto está dentro dos limites definidos.</div></div>`;
+
+      $('dashQuality').innerHTML=CALC.quality.length
+        ? CALC.quality.map(x=>`<div class="alert warn">• ${esc(x)}</div>`).join('')
+        : `<div class="alert ok"><strong>Dados consistentes.</strong><div>Nenhuma inconsistência crítica encontrada.</div></div>`;
+    }
+
+    function renderBDP(){
+      $('bMeters').textContent=`${fmt1(CALC.bdpMeters)}m`;
+      $('bValue').textContent=money(CALC.bdpValue);
+      $('bDays').textContent=fmt(CALC.bdpDays);
+      $('bGap').textContent=`${fmt1(CALC.prodGapPct)}%`;
+      $('bGap').style.color=CALC.prodGapPct>=0?'var(--ok)':'var(--bad)';
+
+      $('tbRates').innerHTML=STATE.bdpRates.map((r,i)=>`
+        <tr>
+          <td><input class="cell-input cell-small mono" value="${esc(r.diametro||'')}" data-rate-k="diametro" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono" value="${num(r.precoMetro,0)}" data-rate-k="precoMetro" data-i="${i}"></td>
+          <td style="text-align:center"><input type="checkbox" ${r.ativo?'checked':''} data-rate-k="ativo" data-i="${i}"></td>
+          <td class="row-actions"><button class="btn btn-bad tiny" data-del-rate="${i}" style="padding:4px 8px">Excluir</button></td>
+        </tr>
+      `).join('');
+
+      $('tbRates').querySelectorAll('[data-rate-k]').forEach(el=>{
+        el.oninput=el.onchange=()=>{
+          const i=+el.dataset.i, k=el.dataset.rateK;
+          if(k==='ativo') STATE.bdpRates[i][k]=el.checked;
+          else if(k==='precoMetro') STATE.bdpRates[i][k]=+el.value;
+          else STATE.bdpRates[i][k]=String(el.value||'').toUpperCase();
+          recalc();
+          renderBDP();
+        };
+      });
+      $('tbRates').querySelectorAll('[data-del-rate]').forEach(btn=>{
+        btn.onclick=()=>{ STATE.bdpRates.splice(+btn.dataset.delRate,1); recalc(); renderBDP(); };
+      });
+
+      $('tbBDP').innerHTML=STATE.bdps.map((r,i)=>`
+        <tr>
+          <td><input type="date" class="cell-input cell-date" value="${esc(r.data||'')}" data-bdp-k="data" data-i="${i}"></td>
+          <td><input class="cell-input cell-mid" value="${esc(r.furo||'')}" data-bdp-k="furo" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono cell-small" value="${num(r.profIni,0)}" data-bdp-k="profIni" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono cell-small" value="${num(r.profFim,0)}" data-bdp-k="profFim" data-i="${i}"></td>
+          <td class="mono">${fmt1(r.metrosPerf||0)}</td>
+          <td><select class="cell-input cell-small" data-bdp-k="diametro" data-i="${i}">${BDP_DIAM.map(d=>`<option value="${d}" ${String(r.diametro||'').toUpperCase()===d?'selected':''}>${d}</option>`).join('')}</select></td>
+          <td><input class="cell-input cell-number mono" value="${num(r.precoUnit,0)}" data-bdp-k="precoUnit" data-i="${i}"></td>
+          <td class="mono">${money(r.valorPerf||0)}</td>
+          <td class="row-actions"><button class="btn btn-bad tiny" data-del-bdp="${i}" style="padding:4px 8px">Excluir</button></td>
+        </tr>
+      `).join('');
+
+      $('tbBDP').querySelectorAll('[data-bdp-k]').forEach(el=>{
+        el.oninput=el.onchange=()=>{
+          const i=+el.dataset.i, k=el.dataset.bdpK;
+          if(k==='profIni' || k==='profFim' || k==='precoUnit') STATE.bdps[i][k]=+el.value;
+          else if(k==='diametro') STATE.bdps[i][k]=String(el.value||'').toUpperCase();
+          else STATE.bdps[i][k]=el.value;
+          recalc();
+          renderBDP();
+        };
+      });
+      $('tbBDP').querySelectorAll('[data-del-bdp]').forEach(btn=>{
+        btn.onclick=()=>{ STATE.bdps.splice(+btn.dataset.delBdp,1); recalc(); renderBDP(); };
+      });
+    }
+
+    function renderMed(){
+      $('mMeasured').textContent=`${fmt1(CALC.totalMeasured)}m`;
+      $('mBilled').textContent=money(CALC.totalBilled);
+      $('mReceived').textContent=money(CALC.totalReceived);
+      $('mRemaining').textContent=money(Math.max(0,CALC.contractValue-CALC.totalBilled));
+
+      $('tbMed').innerHTML=STATE.medicoes.map((m,i)=>`
+        <tr>
+          <td><input type="date" class="cell-input cell-date" value="${esc(m.data||'')}" data-med-k="data" data-i="${i}"></td>
+          <td><input class="cell-input" value="${esc(m.descricao||'')}" data-med-k="descricao" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono" value="${num(m.metros,0)}" data-med-k="metros" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono" value="${num(m.valor,0)}" data-med-k="valor" data-i="${i}"></td>
+          <td>
+            <select class="cell-input cell-mid" data-med-k="status" data-i="${i}">
+              <option value="pendente" ${m.status==='pendente'?'selected':''}>pendente</option>
+              <option value="faturado" ${m.status==='faturado'?'selected':''}>faturado</option>
+              <option value="recebido" ${m.status==='recebido'?'selected':''}>recebido</option>
+            </select>
+          </td>
+          <td><input class="cell-input cell-number mono" value="${num(m.recebido,0)}" data-med-k="recebido" data-i="${i}"></td>
+          <td class="row-actions"><button class="btn btn-bad tiny" data-del-med="${i}" style="padding:4px 8px">Excluir</button></td>
+        </tr>
+      `).join('');
+
+      $('tbMed').querySelectorAll('[data-med-k]').forEach(el=>{
+        el.oninput=el.onchange=()=>{
+          const i=+el.dataset.i, k=el.dataset.medK;
+          if(['metros','valor','recebido'].includes(k)) STATE.medicoes[i][k]=+el.value;
+          else STATE.medicoes[i][k]=el.value;
+          recalc();
+          renderMed();
+        };
+      });
+      $('tbMed').querySelectorAll('[data-del-med]').forEach(btn=>{
+        btn.onclick=()=>{ STATE.medicoes.splice(+btn.dataset.delMed,1); recalc(); renderMed(); };
+      });
+    }
+
+    function renderSSMA(){
+      $('sDaysNoAcc').textContent=fmt(num(STATE.ssma.diasSemAcidente,0));
+      $('sFreq').textContent=fmt1(CALC.freq);
+      $('sSev').textContent=fmt1(CALC.severity);
+      $('sStopH').textContent=`${fmt1(CALC.horasParadas)}h`;
+      bindInput('ssDays',()=>STATE.ssma.diasSemAcidente,v=>STATE.ssma.diasSemAcidente=+v);
+      bindInput('ssAcc',()=>STATE.ssma.acidentes,v=>STATE.ssma.acidentes=+v);
+      bindInput('ssNear',()=>STATE.ssma.quaseAcidentes,v=>STATE.ssma.quaseAcidentes=+v);
+      bindInput('ssExp',()=>STATE.ssma.horasExposicao,v=>STATE.ssma.horasExposicao=+v);
+      bindInput('ssDpt',()=>STATE.ssma.dpt,v=>STATE.ssma.dpt=+v);
+
+      $('tbStops').innerHTML=STATE.paradas.map((p,i)=>`
+        <tr>
+          <td><input type="date" class="cell-input cell-date" value="${esc(p.data||'')}" data-stop-k="data" data-i="${i}"></td>
+          <td><input class="cell-input" value="${esc(p.motivo||'')}" data-stop-k="motivo" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono" value="${num(p.horas,0)}" data-stop-k="horas" data-i="${i}"></td>
+          <td><input class="cell-input cell-mid" value="${esc(p.tipo||'')}" data-stop-k="tipo" data-i="${i}"></td>
+          <td class="row-actions"><button class="btn btn-bad tiny" data-del-stop="${i}" style="padding:4px 8px">Excluir</button></td>
+        </tr>
+      `).join('');
+      $('tbStops').querySelectorAll('[data-stop-k]').forEach(el=>{
+        el.oninput=()=>{
+          const i=+el.dataset.i,k=el.dataset.stopK;
+          STATE.paradas[i][k]=(k==='horas')?+el.value:el.value;
+          recalc(); renderSSMA();
+        };
+      });
+      $('tbStops').querySelectorAll('[data-del-stop]').forEach(btn=>{
+        btn.onclick=()=>{ STATE.paradas.splice(+btn.dataset.delStop,1); recalc(); renderSSMA(); };
+      });
+
+      $('tbSSMAEvents').innerHTML=STATE.ssmaEvents.map((e,i)=>`
+        <tr>
+          <td><input type="date" class="cell-input cell-date" value="${esc(e.data||'')}" data-ev-k="data" data-i="${i}"></td>
+          <td><input class="cell-input" value="${esc(e.titulo||'')}" data-ev-k="titulo" data-i="${i}"></td>
+          <td style="text-align:center"><input type="checkbox" ${e.impactPlanning?'checked':''} data-ev-k="impactPlanning" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono" value="${num(e.impactDays,0)}" data-ev-k="impactDays" data-i="${i}"></td>
+          <td><input class="cell-input cell-mid" value="${esc(e.responsible||'')}" data-ev-k="responsible" data-i="${i}"></td>
+          <td>
+            <select class="cell-input cell-mid" data-ev-k="status" data-i="${i}">
+              ${EVENT_STATUS.map(s=>`<option value="${s}" ${e.status===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td class="row-actions"><button class="btn btn-bad tiny" data-del-ev="${i}" style="padding:4px 8px">Excluir</button></td>
+        </tr>
+      `).join('');
+
+      $('tbSSMAEvents').querySelectorAll('[data-ev-k]').forEach(el=>{
+        el.oninput=el.onchange=()=>{
+          const i=+el.dataset.i,k=el.dataset.evK;
+          if(k==='impactPlanning') STATE.ssmaEvents[i][k]=el.checked;
+          else if(k==='impactDays') STATE.ssmaEvents[i][k]=+el.value;
+          else STATE.ssmaEvents[i][k]=el.value;
+          recalc(); renderSSMA();
+        };
+      });
+      $('tbSSMAEvents').querySelectorAll('[data-del-ev]').forEach(btn=>{
+        btn.onclick=()=>{ STATE.ssmaEvents.splice(+btn.dataset.delEv,1); recalc(); renderSSMA(); };
+      });
+    }
+
+    function renderTrack(){
+      const today=isoDate();
+      $('trPlanned').textContent=`${fmt1(getPlannedMetersByDate(today))}m`;
+      $('trActual').textContent=`${fmt1(getActualMetersByDate(today))}m`;
+      $('trPlanCost').textContent=money((CALC.totalCost/Math.max(1,CALC.totalPlanDays))*getDaysElapsed(today));
+      $('trActualCost').textContent=money(getActualCostByDate(today));
+      const sorted=[...(STATE.dailySnapshots||[])].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+      $('tbTrack').innerHTML=sorted.length
+        ? sorted.map(s=>`<tr><td>${esc(s.date||'')}</td><td class="mono">${fmt1(s.plannedMeters||0)}</td><td class="mono">${fmt1(s.actualMeters||0)}</td><td class="mono">${money(s.plannedCost||0)}</td><td class="mono">${money(s.actualCost||0)}</td></tr>`).join('')
+        : `<tr><td colspan="5" class="tiny muted" style="text-align:center;padding:18px">Nenhum fechamento diário registrado.</td></tr>`;
+    }
+
+    function canDeletePO(po){
+      const c=String(po.creatorEmail||'');
+      return !c || c===currentUser?.email || c===currentUser?.uid;
+    }
+
+    function addPO(){
+      const name=prompt('Nome da PO / item de reposição:');
+      if(!name) return;
+      STATE.purchaseOrders.push({
+        id:uid('po'),
+        name:name.trim(),
+        code:'',
+        amount:0,
+        month:monthKey(isoDate()),
+        status:'aguardando',
+        notes:'',
+        creatorEmail:currentUser?.email||currentUser?.uid||'local',
+        creatorName:currentUser?.displayName||currentUser?.email||'Usuário',
+        createdAt:new Date().toISOString(),
+        history:[]
+      });
+      recalc();
+      renderInsu();
+    }
+
+    function renderInsu(){
+      const totals={aguardando:0,aprovada:0,reprovada:0};
+      STATE.purchaseOrders.forEach(po=>{ totals[po.status]=(totals[po.status]||0)+num(po.amount,0); });
+      $('iPending').textContent=money(totals.aguardando||0);
+      $('iApproved').textContent=money(totals.aprovada||0);
+      $('iRejected').textContent=money(totals.reprovada||0);
+      $('iTotal').textContent=money((totals.aguardando||0)+(totals.aprovada||0)+(totals.reprovada||0));
+
+      $('tbPO').innerHTML=STATE.purchaseOrders.map((po,i)=>`
+        <tr>
+          <td>${esc(po.name||'')}</td>
+          <td><input class="cell-input cell-mid" value="${esc(po.code||'')}" data-po-k="code" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono" value="${num(po.amount,0)}" data-po-k="amount" data-i="${i}"></td>
+          <td><input type="month" class="cell-input cell-date" value="${esc(po.month||monthKey())}" data-po-k="month" data-i="${i}"></td>
+          <td>
+            <select class="cell-input cell-mid" data-po-k="status" data-i="${i}">
+              ${PO_STATUS.map(s=>`<option value="${s}" ${po.status===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td><input class="cell-input" value="${esc(po.notes||'')}" data-po-k="notes" data-i="${i}"></td>
+          <td class="tiny muted">${esc(po.creatorName||po.creatorEmail||'—')}</td>
+          <td class="row-actions">${canDeletePO(po)?`<button class="btn btn-bad tiny" data-del-po="${i}" style="padding:4px 8px">Excluir</button>`:'—'}</td>
+        </tr>
+      `).join('');
+
+      $('tbPO').querySelectorAll('[data-po-k]').forEach(el=>{
+        el.oninput=el.onchange=()=>{
+          const i=+el.dataset.i,k=el.dataset.poK;
+          const po=STATE.purchaseOrders[i];
+          if(!po) return;
+          if(k==='amount') po[k]=+el.value;
+          else if(k==='status'){
+            const prev=po.status;
+            po.status=el.value;
+            po.history=Array.isArray(po.history)?po.history:[];
+            po.history.unshift({ts:new Date().toISOString(),de:prev,para:po.status,user:currentUser?.email||'local'});
+          }else po[k]=el.value;
+          recalc(); renderInsu();
+        };
+      });
+      $('tbPO').querySelectorAll('[data-del-po]').forEach(btn=>{
+        btn.onclick=()=>{
+          const i=+btn.dataset.delPo;
+          const po=STATE.purchaseOrders[i];
+          if(!po || !canDeletePO(po)) return;
+          STATE.purchaseOrders.splice(i,1);
+          recalc(); renderInsu();
+        };
+      });
+    }
+
+    function renderManu(){
+      $('maOpen').textContent=fmt(CALC.openMaint);
+      $('maCost').textContent=money(CALC.maintenanceCost);
+      $('maTasks').textContent=fmt(CALC.pendingTasks);
+      $('maAvail').textContent=`${fmt1(CALC.availability)}%`;
+
+      $('tbAssets').innerHTML=STATE.maintenanceAssets.map((a,i)=>`
+        <tr>
+          <td><input class="cell-input" value="${esc(a.name||'')}" data-asset-k="name" data-i="${i}"></td>
+          <td><input class="cell-input cell-mid" value="${esc(a.category||'')}" data-asset-k="category" data-i="${i}"></td>
+          <td style="text-align:center"><input type="checkbox" ${a.active?'checked':''} data-asset-k="active" data-i="${i}"></td>
+          <td class="row-actions"><button class="btn btn-bad tiny" data-del-asset="${i}" style="padding:4px 8px">Excluir</button></td>
+        </tr>
+      `).join('');
+      $('tbAssets').querySelectorAll('[data-asset-k]').forEach(el=>{
+        el.oninput=el.onchange=()=>{
+          const i=+el.dataset.i,k=el.dataset.assetK;
+          if(k==='active') STATE.maintenanceAssets[i][k]=el.checked;
+          else STATE.maintenanceAssets[i][k]=el.value;
+          recalc(); renderManu();
+        };
+      });
+      $('tbAssets').querySelectorAll('[data-del-asset]').forEach(btn=>{
+        btn.onclick=()=>{ STATE.maintenanceAssets.splice(+btn.dataset.delAsset,1); recalc(); renderManu(); };
+      });
+
+      $('tbTasks').innerHTML=STATE.maintenanceTasks.map((t,i)=>`
+        <tr>
+          <td><input class="cell-input" value="${esc(t.title||'')}" data-task-k="title" data-i="${i}"></td>
+          <td><input type="date" class="cell-input cell-date" value="${esc(t.dueDate||isoDate())}" data-task-k="dueDate" data-i="${i}"></td>
+          <td><input class="cell-input cell-mid" value="${esc(t.responsible||'')}" data-task-k="responsible" data-i="${i}"></td>
+          <td>
+            <select class="cell-input cell-mid" data-task-k="status" data-i="${i}">
+              <option value="pendente" ${t.status==='pendente'?'selected':''}>pendente</option>
+              <option value="em-analise" ${t.status==='em-analise'?'selected':''}>em-analise</option>
+              <option value="concluida" ${t.status==='concluida'?'selected':''}>concluida</option>
+            </select>
+          </td>
+          <td class="row-actions"><button class="btn btn-bad tiny" data-del-task="${i}" style="padding:4px 8px">Excluir</button></td>
+        </tr>
+      `).join('');
+      $('tbTasks').querySelectorAll('[data-task-k]').forEach(el=>{
+        el.oninput=el.onchange=()=>{
+          const i=+el.dataset.i,k=el.dataset.taskK;
+          STATE.maintenanceTasks[i][k]=el.value;
+          recalc(); renderManu();
+        };
+      });
+      $('tbTasks').querySelectorAll('[data-del-task]').forEach(btn=>{
+        btn.onclick=()=>{ STATE.maintenanceTasks.splice(+btn.dataset.delTask,1); recalc(); renderManu(); };
+      });
+
+      $('tbMaint').innerHTML=STATE.maintenanceRecords.map((r,i)=>`
+        <tr>
+          <td><input type="date" class="cell-input cell-date" value="${esc(r.data||isoDate())}" data-mr-k="data" data-i="${i}"></td>
+          <td>
+            <select class="cell-input cell-mid" data-mr-k="assetId" data-i="${i}">
+              <option value="">Selecione</option>
+              ${STATE.maintenanceAssets.map(a=>`<option value="${esc(a.id)}" ${r.assetId===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}
+            </select>
+          </td>
+          <td><input class="cell-input" value="${esc(r.comment||'')}" data-mr-k="comment" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono" value="${num(r.hoursDown,0)}" data-mr-k="hoursDown" data-i="${i}"></td>
+          <td><input class="cell-input cell-number mono" value="${num(r.cost,0)}" data-mr-k="cost" data-i="${i}"></td>
+          <td><input class="cell-input cell-mid" value="${esc(r.responsible||'')}" data-mr-k="responsible" data-i="${i}"></td>
+          <td>
+            <select class="cell-input cell-mid" data-mr-k="status" data-i="${i}">
+              ${MAINT_STATUS.map(s=>`<option value="${s}" ${r.status===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td class="row-actions"><button class="btn btn-bad tiny" data-del-mr="${i}" style="padding:4px 8px">Excluir</button></td>
+        </tr>
+      `).join('');
+      $('tbMaint').querySelectorAll('[data-mr-k]').forEach(el=>{
+        el.oninput=el.onchange=()=>{
+          const i=+el.dataset.i,k=el.dataset.mrK;
+          if(k==='hoursDown' || k==='cost') STATE.maintenanceRecords[i][k]=+el.value;
+          else if(k==='assetId'){
+            STATE.maintenanceRecords[i].assetId=el.value;
+            const a=STATE.maintenanceAssets.find(x=>x.id===el.value);
+            STATE.maintenanceRecords[i].assetName=a?a.name:'';
+          }else{
+            STATE.maintenanceRecords[i][k]=el.value;
+          }
+          recalc(); renderManu();
+        };
+      });
+      $('tbMaint').querySelectorAll('[data-del-mr]').forEach(btn=>{
+        btn.onclick=()=>{ STATE.maintenanceRecords.splice(+btn.dataset.delMr,1); recalc(); renderManu(); };
+      });
+    }
+
+    function renderAudit(){
+      const term=($('auditSearch').value||'').toLowerCase();
+      const rows=(STATE.audit||[]).filter(a=>{
+        if(!term) return true;
+        return String(a.userEmail||'').toLowerCase().includes(term)
+          || String(a.userName||'').toLowerCase().includes(term)
+          || (a.changes||[]).some(c=>String(c.label||'').toLowerCase().includes(term));
+      });
+      $('auditCount').textContent=`${rows.length} registro(s)`;
+      $('tbAudit').innerHTML=rows.length?rows.map(r=>`
+        <tr>
+          <td class="mono tiny muted">${new Date(r.ts).toLocaleString('pt-BR')}</td>
+          <td><div><strong>${esc(r.userName||'Usuário')}</strong></div><div class="tiny muted">${esc(r.userEmail||'')}</div></td>
+          <td>${(r.changes||[]).map(c=>`<div class="tiny"><span class="muted">${esc(c.label)}:</span> <span style="color:var(--bad)">${esc(c.de)}</span> → <span style="color:var(--ok)">${esc(c.para)}</span></div>`).join('')}</td>
+        </tr>
+      `).join(''):`<tr><td colspan="3" class="tiny muted" style="text-align:center;padding:18px">Sem registros.</td></tr>`;
+    }
+
+    function diffAudit(before,after){
+      if(!before || !after) return [];
+      const fields=[
+        ['name','Nome'],['cliente','Cliente'],['local','Local'],['dataInicio','Data início'],
+        ['metragem','Metragem'],['nPerf','Perfuratrizes'],['prodMdia','Produtividade'],
+        ['leadTime','Lead time'],['prazoContratual','Prazo contratual'],['valorContrato','Valor contrato'],
+        ['valorMetroContrato','Valor/m contrato'],['contingencia','Contingência']
+      ];
+      const out=[];
+      fields.forEach(([k,l])=>{
+        if(String(before[k]??'')!==String(after[k]??'')) out.push({label:l,de:before[k]??'',para:after[k]??''});
+      });
+      const arrays=['bdps','medicoes','riscos','ssmaEvents','purchaseOrders','maintenanceRecords','maintenanceTasks'];
+      arrays.forEach(k=>{
+        if((before[k]||[]).length!==(after[k]||[]).length) out.push({label:`${k} (itens)`,de:(before[k]||[]).length,para:(after[k]||[]).length});
+      });
+      if(JSON.stringify((before.purchaseOrders||[]).map(x=>[x.code,x.status,x.amount]))!==JSON.stringify((after.purchaseOrders||[]).map(x=>[x.code,x.status,x.amount]))) out.push({label:'POs valores/status',de:'alteração',para:'alteração'});
+      if(JSON.stringify((before.bdps||[]).map(x=>[x.data,x.furo,x.profIni,x.profFim,x.precoUnit]))!==JSON.stringify((after.bdps||[]).map(x=>[x.data,x.furo,x.profIni,x.profFim,x.precoUnit]))) out.push({label:'BDP lançamento',de:'alteração',para:'alteração'});
+      return out.slice(0,25);
+    }
+
+    function markSync(state){
+      $('kSync').textContent=state;
+      $('kSync').style.color=state==='on'?'var(--ok)':state==='saving'?'var(--warn)':'var(--bad)';
+    }
+
+    function isEditingNow(){
+      const ae=document.activeElement;
+      const focused=!!(ae && ['INPUT','TEXTAREA','SELECT'].includes(ae.tagName));
+      return focused || (Date.now()-lastInteraction)<1800;
+    }
+
+    function showRemoteBanner(show){
+      $('remoteBanner').classList.toggle('show',!!show);
+    }
+
+    function applyPendingRemote(){
+      if(!pendingRemoteProject) return;
+      applyProjectData(pendingRemoteProject);
+      pendingRemoteProject=null;
+      showRemoteBanner(false);
+      lastSavedFingerprint=fingerprint();
+      markSync('on');
+    }
+
+    function dismissPendingRemote(){
+      pendingRemoteProject=null;
+      showRemoteBanner(false);
+    }
+
+    function autoSave(){
+      if(!currentProjectId) return;
+      const fp=fingerprint();
+      if(fp===lastSavedFingerprint) return;
+      markSync('saving');
+      clearTimeout(saveTimer);
+      saveTimer=setTimeout(async()=>{
+        const payload=persistable();
+        const changes=diffAudit(lastAuditSnapshot,payload);
+        if(changes.length){
+          const audit=Array.isArray(payload.audit)?payload.audit:[];
+          audit.unshift({
+            ts:new Date().toISOString(),
+            userEmail:currentUser?.email||'local',
+            userName:currentUser?.displayName||currentUser?.email||'Usuário',
+            changes
+          });
+          if(audit.length>500) audit.length=500;
+          payload.audit=audit;
+        }
+        try{
+          if(db){
+            await db.collection('projects').doc(currentProjectId).set(payload,{merge:true});
+          }else{
+            const local=JSON.parse(localStorage.getItem('bi_projects')||'[]');
+            const idx=local.findIndex(p=>p.id===currentProjectId);
+            if(idx>=0) local[idx]={...payload,id:currentProjectId};
+            localStorage.setItem('bi_projects',JSON.stringify(local));
+          }
+          if(Array.isArray(payload.audit)) STATE.audit=payload.audit;
+          lastAuditSnapshot=deepClone(payload);
+          lastSavedFingerprint=fp;
+          markSync('on');
+          if(activeTab==='audit') renderAudit();
+        }catch(e){
+          console.error(e);
+          markSync('off');
+        }
+      },1000);
+    }
+
+    function isMember(project){
+      if(!currentUser || !project) return false;
+      const members=Array.isArray(project.members)?project.members:[];
+      return members.includes(currentUser.email) || members.includes(currentUser.uid) || project.createdBy===currentUser.email || project.createdBy===currentUser.uid;
+    }
+
+    function isOwner(project){
+      if(!currentUser || !project) return false;
+      return project.createdBy===currentUser.email || project.createdBy===currentUser.uid;
+    }
+
+    function canDeleteProject(project){
+      const creator=String(project?.createdBy||'').trim();
+      return isOwner(project) || (!creator && isMember(project));
+    }
+
+    async function loadProjects(){
+      if(!db){ return renderProjects(JSON.parse(localStorage.getItem('bi_projects')||'[]')); }
+      try{
+        const q=[];
+        if(currentUser?.email){
+          q.push(db.collection('projects').where('members','array-contains',currentUser.email).get());
+          q.push(db.collection('projects').where('createdBy','==',currentUser.email).get());
+        }
+        if(currentUser?.uid){
+          q.push(db.collection('projects').where('members','array-contains',currentUser.uid).get());
+          q.push(db.collection('projects').where('createdBy','==',currentUser.uid).get());
+        }
+        const settled=await Promise.allSettled(q);
+        const map=new Map();
+        settled.forEach(x=>{
+          if(x.status!=='fulfilled') return;
+          x.value.docs.forEach(d=>map.set(d.id,{id:d.id,...d.data()}));
+        });
+        renderProjects(Array.from(map.values()));
+      }catch(e){
+        console.error(e);
+        renderProjects(JSON.parse(localStorage.getItem('bi_projects')||'[]'));
+      }
+    }
+
+    function renderPortfolioSummary(projects){
+      const list=Array.isArray(projects)?projects:[];
+      const total=list.length;
+      const attention=list.filter(p=>{
+        const pr=normalize(p);
+        const estContract=num(pr.valorContrato,0) || (num(pr.valorMetroContrato,0)*num(pr.metragem,0));
+        const estProd=Math.max(1,num(pr.nPerf,1)*num(pr.prodMdia,1));
+        const estDays=Math.max(1,num(pr.leadTime,15)+Math.ceil(num(pr.metragem,0)/estProd)+15);
+        const proxyCost=estContract>0 ? estContract*0.9 : num(pr.metragem,0)*num(pr.nPerf,0)*35;
+        const quickMargin=estContract>0?((estContract-proxyCost)/Math.max(1,estContract))*100:0;
+        return getHealth({_margin:quickMargin,_days:estDays,prazoContratual:pr.prazoContratual}).cls!=='ok';
+      }).length;
+      const meters=list.reduce((a,p)=>a+num(p.metragem,0),0);
+      const rigs=list.reduce((a,p)=>a+num(p.nPerf,0),0);
+      const rev=list.reduce((a,p)=>a+num(p.valorContrato,0),0);
+      $('pfProjects').textContent=fmt(total);
+      $('pfAttention').textContent=fmt(attention);
+      $('pfMeters').textContent=`${fmt(meters)}m`;
+      $('pfRigs').textContent=fmt(rigs);
+      $('pfRevenue').textContent=money(rev);
+      $('pfHealth').textContent=total?attention?'Atenção':'Saudável':'—';
+    }
+
+    function renderProjects(projects){
+      allProjects=Array.isArray(projects)?projects:[];
+      renderPortfolioSummary(allProjects);
+      const term=projectSearchTerm.trim().toLowerCase();
+      const list=term?allProjects.filter(p=>`${p.name||''} ${p.cliente||''} ${p.local||''}`.toLowerCase().includes(term)):allProjects;
+
+      const tiles=list.map(p=>{
+        const pr=normalize(p);
+        const estContract=num(pr.valorContrato,0) || (num(pr.valorMetroContrato,0)*num(pr.metragem,0));
+        const estProd=Math.max(1,num(pr.nPerf,1)*num(pr.prodMdia,1));
+        const estDays=Math.max(1,num(pr.leadTime,15)+Math.ceil(num(pr.metragem,0)/estProd)+15);
+        const proxyCost=estContract>0 ? estContract*0.9 : num(pr.metragem,0)*num(pr.nPerf,0)*35;
+        const quickMargin=estContract>0?((estContract-proxyCost)/Math.max(1,estContract))*100:0;
+        const health=getHealth({_margin:quickMargin,_days:estDays,prazoContratual:pr.prazoContratual});
+        const price=num(pr.valorContrato,0)>0 && num(pr.metragem,0)>0 ? num(pr.valorContrato,0)/num(pr.metragem,1) : 0;
+        return `
+          <article class="project-tile" data-open-project="${esc(p.id)}">
+            <div class="tile-head">
+              <div>
+                <div class="tile-title">${esc(pr.name||'Sem nome')}</div>
+                <div class="tile-meta">${esc(pr.cliente||'Sem cliente')} — ${esc(pr.local||'Sem local')}</div>
+                <div class="tiny subtle" style="margin-top:4px">Criador: ${isOwner(pr)?'você':esc(pr.createdBy||'não informado')}</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                <span class="badge ${health.cls}">${health.label}</span>
+                ${canDeleteProject(pr)?`<button class="btn btn-bad tiny" data-del-project="${esc(p.id)}" style="padding:4px 8px">Excluir</button>`:''}
+              </div>
+            </div>
+            <div class="grid-2" style="margin-top:8px;gap:8px">
+              <div class="tiny muted">Metragem <strong class="mono" style="color:var(--txt)">${fmt(num(pr.metragem,0))}m</strong></div>
+              <div class="tiny muted">Perfuratrizes <strong class="mono" style="color:var(--txt)">${fmt(num(pr.nPerf,0))}</strong></div>
+              <div class="tiny muted">Prazo <strong class="mono" style="color:var(--txt)">${fmt(num(pr.prazoContratual,0))}d</strong></div>
+              <div class="tiny muted">R$/m <strong class="mono" style="color:var(--txt)">${price?money(price):'—'}</strong></div>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      $('projectGrid').innerHTML=tiles + `
+        <article class="project-tile" id="btnNewProject" style="display:grid;place-items:center;min-height:110px;border-style:dashed">
+          <div style="text-align:center">
+            <div style="font-size:28px;line-height:1">+</div>
+            <div class="tiny muted">Novo projeto</div>
+          </div>
+        </article>
+      `;
+
+      $('btnNewProject').onclick=createProject;
+      $('projectGrid').querySelectorAll('[data-open-project]').forEach(el=>{
+        el.onclick=(ev)=>{
+          if(ev.target.closest('[data-del-project]')) return;
+          openProject(el.dataset.openProject);
+        };
+      });
+      $('projectGrid').querySelectorAll('[data-del-project]').forEach(btn=>{
+        btn.onclick=async(ev)=>{
+          ev.stopPropagation();
+          await deleteProject(btn.dataset.delProject);
+        };
+      });
+    }
+
+    async function createProject(){
+      const name=prompt('Nome do projeto:');
+      if(!name) return;
+      const data=defaults();
+      data.name=name.trim();
+      data.createdBy=currentUser?.email||currentUser?.uid||'local';
+      data.createdAt=new Date().toISOString();
+      data.members=[currentUser?.email,currentUser?.uid].filter(Boolean);
+      if(db){
+        const ref=await db.collection('projects').add(data);
+        openProject(ref.id);
+      }else{
+        const id='loc_'+Date.now();
+        data.id=id;
+        const local=JSON.parse(localStorage.getItem('bi_projects')||'[]');
+        local.push(data);
+        localStorage.setItem('bi_projects',JSON.stringify(local));
+        openProject(id);
+      }
+    }
+
+    async function deleteProject(id){
+      const p=allProjects.find(x=>x.id===id);
+      if(!p) return;
+      if(!canDeleteProject(p)) return alert('Sem permissão para excluir este projeto.');
+      if(!confirm(`Excluir projeto "${p.name||'Projeto'}"?`)) return;
+      try{
+        if(db) await db.collection('projects').doc(id).delete();
+        else{
+          const local=JSON.parse(localStorage.getItem('bi_projects')||'[]').filter(x=>x.id!==id);
+          localStorage.setItem('bi_projects',JSON.stringify(local));
+        }
+        if(currentProjectId===id) backToProjects();
+        await loadProjects();
+      }catch(e){
+        console.error(e);
+        alert('Não foi possível excluir o projeto. Verifique as regras do Firestore e permissões.');
+      }
+    }
+
+    function clearPresence(){
+      if(unsubPresence){unsubPresence();unsubPresence=null;}
+      if(presenceBeat){clearInterval(presenceBeat);presenceBeat=null;}
+      presenceUsers=[];
+      if(activeTab==='team' && typeof renderTeam==='function') renderTeam();
+      if(db && currentProjectId && currentUser?.uid){
+        db.collection('projects').doc(currentProjectId).collection('presence').doc(currentUser.uid).delete().catch(()=>{});
+      }
+    }
+
+    function startPresence(){
+      if(!db || !currentProjectId || !currentUser?.uid) return;
+      clearPresence();
+      const docRef=db.collection('projects').doc(currentProjectId).collection('presence').doc(currentUser.uid);
+      const payload=()=>({
+        uid:currentUser.uid,
+        name:currentUser.displayName||currentUser.email||'Usuário',
+        email:currentUser.email||'',
+        photoURL:currentUser.photoURL||'',
+        lastSeen:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      docRef.set(payload(),{merge:true}).catch(()=>{});
+      presenceBeat=setInterval(()=>docRef.set(payload(),{merge:true}).catch(()=>{}),25000);
+      unsubPresence=db.collection('projects').doc(currentProjectId).collection('presence').onSnapshot(snap=>{
+        const now=Date.now();
+        const users=[];
+        snap.forEach(doc=>{
+          const d=doc.data()||{};
+          const ms=d.lastSeen?.toDate ? d.lastSeen.toDate().getTime() : 0;
+          if(!ms || now-ms<=90000) users.push(d);
+        });
+        presenceUsers=users;
+        if(activeTab==='team' && typeof renderTeam==='function') renderTeam();
+      },()=>{
+        presenceUsers=[];
+        if(activeTab==='team' && typeof renderTeam==='function') renderTeam();
+      });
+    }
+
+    async function openProject(id){
+      currentProjectId=id;
+      pendingRemoteProject=null;
+      showRemoteBanner(false);
+      if(unsubProject){unsubProject();unsubProject=null;}
+      try{
+        if(db){
+          const ref=db.collection('projects').doc(id);
+          const first=await ref.get();
+          if(!first.exists) throw new Error('Projeto não encontrado.');
+          const data={id:first.id,...first.data()};
+          applyProjectData(data);
+          showScreen('bi');
+          buildAppSkeleton();
+          lastSavedFingerprint=fingerprint();
+          lastAuditSnapshot=persistable();
+          markSync('on');
+          startPresence();
+          unsubProject=ref.onSnapshot({includeMetadataChanges:true},snap=>{
+            if(!snap.exists) return;
+            if(snap.metadata?.hasPendingWrites){ markSync('saving'); return; }
+            const incoming={id:snap.id,...snap.data()};
+            const inFp=fingerprint(normalize(incoming));
+            const curFp=fingerprint();
+            if(inFp===curFp){
+              markSync('on');
+              return;
+            }
+            if(isEditingNow()){
+              pendingRemoteProject=incoming;
+              showRemoteBanner(true);
+              markSync('on');
+              return;
+            }
+            applyProjectData(incoming);
+            buildAppSkeleton();
+            lastSavedFingerprint=fingerprint();
+            lastAuditSnapshot=persistable();
+            markSync('on');
+          },err=>{
+            console.error(err);
+            markSync('off');
+          });
+        }else{
+          const local=JSON.parse(localStorage.getItem('bi_projects')||'[]');
+          const p=local.find(x=>x.id===id);
+          if(!p) throw new Error('Projeto local não encontrado.');
+          applyProjectData(p);
+          showScreen('bi');
+          buildAppSkeleton();
+          lastSavedFingerprint=fingerprint();
+          lastAuditSnapshot=persistable();
+          markSync('on');
+        }
+      }catch(e){
+        console.error(e);
+        alert('Não foi possível abrir o projeto.');
+        backToProjects();
+      }
+    }
+
+    function backToProjects(){
+      if(unsubProject){unsubProject();unsubProject=null;}
+      clearPresence();
+      currentProjectId=null;
+      pendingRemoteProject=null;
+      showRemoteBanner(false);
+      showScreen('projects');
+      loadProjects();
+    }
+
+    function exportCSV(){
+      const rows=[
+        ['Projeto',STATE.name],
+        ['Cliente',STATE.cliente],
+        ['Local',STATE.local],
+        ['Prazo integrado (d)',CALC.totalPlanDays],
+        ['Margem (%)',fmt1(CALC.margin)],
+        ['Metros BDP',fmt1(CALC.bdpMeters)],
+        ['Faturado',money(CALC.totalBilled)],
+        ['Recebido',money(CALC.totalReceived)],
+        ['Disponibilidade (%)',fmt1(CALC.availability)],
+        ['Checklist pendências',String(CALC.quality.length)]
+      ];
+      const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;
+      a.download=`BI_Sondagem_${(STATE.name||'projeto').replace(/[^a-zA-Z0-9]/g,'_')}_${isoDate()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function renderMembersModal(){
+      const members=[...new Set((STATE.members||[]).filter(Boolean))];
+      $('membersList').innerHTML=members.length
+        ? members.map((m,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span>${esc(m)}</span><button class="btn btn-bad tiny" data-del-member="${i}" style="padding:4px 8px">Remover</button></div>`).join('')
+        : `<div class="tiny muted">Nenhum membro adicional.</div>`;
+      $('membersList').querySelectorAll('[data-del-member]').forEach(btn=>{
+        btn.onclick=()=>{
+          const i=+btn.dataset.delMember;
+          STATE.members.splice(i,1);
+          recalc();
+          renderMembersModal();
+        };
+      });
+    }
+
+    function setupUiActions(){
+      $('btnLogout').onclick=()=>{
+        if(unsubProject){unsubProject();unsubProject=null;}
+        clearPresence();
+        pendingRemoteProject=null;
+        showRemoteBanner(false);
+        if(auth) auth.signOut();
+        else showScreen('auth');
+      };
+      $('btnBack').onclick=backToProjects;
+      $('btnExport').onclick=exportCSV;
+      $('btnMembers').onclick=()=>{ renderMembersModal(); $('membersModal').classList.add('show'); };
+      $('btnCloseMembers').onclick=()=>$('membersModal').classList.remove('show');
+      $('btnAddMember').onclick=()=>{
+        const email=$('newMemberEmail').value.trim().toLowerCase();
+        if(!email || !email.includes('@')) return;
+        if(!STATE.members.includes(email)) STATE.members.push(email);
+        $('newMemberEmail').value='';
+        recalc();
+        renderMembersModal();
+      };
+      $('btnIgnoreRemote').onclick=dismissPendingRemote;
+      $('btnApplyRemote').onclick=applyPendingRemote;
+
+      $('projectSearch').oninput=()=>{
+        projectSearchTerm=String($('projectSearch').value||'').toLowerCase();
+        renderProjects(allProjects);
+      };
+      $('btnClearSearch').onclick=()=>{
+        projectSearchTerm='';
+        $('projectSearch').value='';
+        renderProjects(allProjects);
+      };
+    }
+
+    function initAuth(){
+      if(!auth){
+        currentUser={uid:'local',email:'local@local',displayName:'Local',photoURL:''};
+        showScreen('projects');
+        loadProjects();
+        return;
+      }
+
+      $('btnLogin').addEventListener('click',async()=>{
+        if(location.protocol==='file:'){
+          $('authError').style.display='block';
+          $('authError').textContent='Abra via servidor HTTP/HTTPS (ex.: firebase hosting local ou http-server).';
+          return;
+        }
+        try{
+          const provider=new firebase.auth.GoogleAuthProvider();
+          const res=await auth.signInWithPopup(provider);
+          const email=res.user?.email||'';
+          if(!inAllowedDomain(email)){
+            await auth.signOut();
+            throw new Error(`Acesso permitido para ${accessPolicyText()}`);
+          }
+        }catch(e){
+          $('authError').style.display='block';
+          $('authError').textContent=e.message||'Erro de autenticação';
+        }
+      });
+
+      auth.onAuthStateChanged(async user=>{
+        currentUser=user;
+        if(!user){
+          showScreen('auth');
+          return;
+        }
+        if(!inAllowedDomain(user.email||'')){
+          await auth.signOut();
+          $('authError').style.display='block';
+          $('authError').textContent=`Conta sem permissão. Política: ${accessPolicyText()}`;
+          showScreen('auth');
+          return;
+        }
+        $('projectUserName').textContent=user.displayName||user.email||'Usuário';
+        $('projectUserPhoto').src=user.photoURL||'';
+        showScreen('projects');
+        await loadProjects();
+      });
+    }
+
+    setupUiActions();
+    initAuth();
+  </script>
+</body>
+</html>
